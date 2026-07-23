@@ -1,0 +1,32 @@
+# Build
+build/
+DerivedData/
+*.xcresult
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Secrets / local
+.env
+.env.*
+*.pem
+
+# Agent / tooling noise
+.claude/
+.cursor/
+*.swp
+*~
