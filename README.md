@@ -129,4 +129,4 @@ make build
 
 ## 许可
 
-MIT（见仓库 LICENSE；若尚未添加则以你后续声明为准）。
+MIT — 见 [LICENSE](LICENSE)。
