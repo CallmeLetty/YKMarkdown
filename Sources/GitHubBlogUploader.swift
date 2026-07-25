@@ -341,18 +341,21 @@ enum GitHubBlogUploader {
         return try JSONDecoder().decode(ContentInfo.self, from: data).sha
     }
 
-    private static func referencedLocalImagePaths(in markdown: String) -> [String] {
+    /// Local (non-http/data) image paths referenced by Markdown image syntax.
+    /// Fenced/inline code is ignored so documentation examples are not treated as assets.
+    static func referencedLocalImagePaths(in markdown: String) -> [String] {
+        let searchable = strippingCodeRegions(from: markdown)
         guard let regex = try? NSRegularExpression(pattern: #"!\[[^\]]*\]\(([^)\s]+)\)"#, options: []) else {
             return []
         }
-        let nsRange = NSRange(markdown.startIndex..., in: markdown)
-        let matches = regex.matches(in: markdown, options: [], range: nsRange)
+        let nsRange = NSRange(searchable.startIndex..., in: searchable)
+        let matches = regex.matches(in: searchable, options: [], range: nsRange)
         var paths: [String] = []
         for match in matches {
             guard match.numberOfRanges > 1,
-                  let range = Range(match.range(at: 1), in: markdown)
+                  let range = Range(match.range(at: 1), in: searchable)
             else { continue }
-            let path = String(markdown[range])
+            let path = String(searchable[range])
             if path.hasPrefix("http://") || path.hasPrefix("https://") || path.hasPrefix("data:") {
                 continue
             }
@@ -361,5 +364,19 @@ enum GitHubBlogUploader {
             }
         }
         return paths
+    }
+
+    private static func strippingCodeRegions(from markdown: String) -> String {
+        var text = markdown
+        let patterns = [
+            "```[\\s\\S]*?```", // fenced code blocks
+            "`[^`\\n]+`", // inline code
+        ]
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { continue }
+            let range = NSRange(text.startIndex..., in: text)
+            text = regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "")
+        }
+        return text
     }
 }

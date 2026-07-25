@@ -15,6 +15,7 @@ struct EditorView: View {
     @State private var layout: EditorLayout = .split
     @State private var insertImageRequest: MarkdownPreviewView.InsertImageRequest?
     @State private var showSaveFirstAlert = false
+    @State private var saveFirstMessage = "插入图片前，请先保存 Markdown 文件。"
     @State private var alertMessage = ""
     @State private var showErrorAlert = false
     @State private var showUploadSheet = false
@@ -72,7 +73,7 @@ struct EditorView: View {
         .alert("请先保存文档", isPresented: $showSaveFirstAlert) {
             Button("好的", role: .cancel) {}
         } message: {
-            Text("插入图片或上传博客前，请先保存 Markdown 文件。")
+            Text(saveFirstMessage)
         }
         .alert("无法完成操作", isPresented: $showErrorAlert) {
             Button("好的", role: .cancel) {}
@@ -152,7 +153,10 @@ struct EditorView: View {
     }
 
     private func beginUpload() {
-        guard fileURL != nil else {
+        let (_, body) = BlogFrontmatter.parse(from: document.text)
+        let hasLocalImages = !GitHubBlogUploader.referencedLocalImagePaths(in: body).isEmpty
+        if hasLocalImages, fileURL == nil {
+            saveFirstMessage = "当前文档引用了本地图片，上传前请先保存 Markdown 文件。"
             showSaveFirstAlert = true
             return
         }
@@ -176,6 +180,7 @@ struct EditorView: View {
 
     private func insertImagesFromPanel() {
         guard fileURL != nil else {
+            saveFirstMessage = "插入图片前，请先保存 Markdown 文件。"
             showSaveFirstAlert = true
             return
         }
@@ -186,6 +191,7 @@ struct EditorView: View {
 
     private func importPasteboardImages(intoPreview: Bool) {
         guard fileURL != nil else {
+            saveFirstMessage = "插入图片前，请先保存 Markdown 文件。"
             showSaveFirstAlert = true
             return
         }
@@ -199,6 +205,7 @@ struct EditorView: View {
 
     private func importImageURLs(_ urls: [URL], intoPreview: Bool) {
         guard fileURL != nil else {
+            saveFirstMessage = "插入图片前，请先保存 Markdown 文件。"
             showSaveFirstAlert = true
             return
         }
@@ -267,6 +274,7 @@ struct EditorView: View {
     private func presentImportError(_ error: Error) {
         if let importError = error as? ImageImportService.ImportError,
            importError == .documentNotSaved {
+            saveFirstMessage = "插入图片前，请先保存 Markdown 文件。"
             showSaveFirstAlert = true
             return
         }

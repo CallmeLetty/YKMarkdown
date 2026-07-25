@@ -52,4 +52,36 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertEqual(BlogSlug.make(from: "Hello World"), "hello-world")
         XCTAssertEqual(BlogSlug.make(from: "a--b"), "a-b")
     }
+
+    func testReferencedLocalImagePathsIgnoresRemoteAndFindsLocal() {
+        let markdown = """
+        ![](https://example.com/a.png)
+        ![](assets/local.png)
+        ![](data:image/png;base64,xxx)
+        ![](assets/local.png)
+        """
+        XCTAssertEqual(
+            GitHubBlogUploader.referencedLocalImagePaths(in: markdown),
+            ["assets/local.png"]
+        )
+    }
+
+    func testReferencedLocalImagePathsIgnoresCodeExamples() {
+        let markdown = """
+        示例：`![说明](assets/example.png)`
+
+        ```md
+        ![demo](assets/in-fence.png)
+        ```
+
+        ![](assets/real.png)
+        """
+        XCTAssertEqual(
+            GitHubBlogUploader.referencedLocalImagePaths(in: markdown),
+            ["assets/real.png"]
+        )
+        XCTAssertTrue(
+            GitHubBlogUploader.referencedLocalImagePaths(in: MarkdownDocument.welcomeMarkdown).isEmpty
+        )
+    }
 }

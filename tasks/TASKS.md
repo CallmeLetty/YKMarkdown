@@ -13,3 +13,14 @@
    Done by: CURSOR
    Done at: 2026-07-25T03:19:37Z
 
+2. allow-upload-without-save-if-no-images
+   Id: 2-allow-upload-without-save-if-no-images
+   Scope: Allow blog upload without local save when markdown has no local image refs; keep save-required when images exist
+   Files: Sources/EditorView.swift,Sources/GitHubBlogUploader.swift,Sources/BlogUploadSheet.swift
+   Note: No local images: upload without save; with local images: still require save. make test passed
+   Detail: tasks/details/2-allow-upload-without-save-if-no-images.md
+   Claimed by: CURSOR
+   Claimed at: 2026-07-25T07:00:43Z
+   Done by: CURSOR
+   Done at: 2026-07-25T07:01:17Z
+
