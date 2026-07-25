@@ -55,6 +55,49 @@ enum GitHubBlogUploader {
 
     static let tokenAccount = "github-token"
 
+    /// Collects unique tags from top-level markdown posts in the content directory.
+    static func fetchExistingTags(
+        settings: BlogUploadSettings,
+        token: String
+    ) async throws -> [String] {
+        guard !settings.owner.isEmpty, !settings.repo.isEmpty else {
+            throw UploadError.invalidSettings
+        }
+        guard !token.isEmpty else { throw UploadError.missingToken }
+
+        let items = try await listDirectory(
+            path: settings.contentDirectory,
+            settings: settings,
+            token: token
+        )
+        let markdownPaths = items
+            .filter { $0.type == "file" && $0.name.lowercased().hasSuffix(".md") }
+            .map(\.path)
+
+        var tagSet = Set<String>()
+        try await withThrowingTaskGroup(of: [String].self) { group in
+            for path in markdownPaths {
+                group.addTask {
+                    let markdown = try await fetchFileText(
+                        path: path,
+                        settings: settings,
+                        token: token
+                    )
+                    return BlogFrontmatter.parse(from: markdown).meta?.tags ?? []
+                }
+            }
+            for try await tags in group {
+                for tag in tags where !tag.isEmpty {
+                    tagSet.insert(tag)
+                }
+            }
+        }
+
+        return tagSet.sorted {
+            $0.localizedStandardCompare($1) == .orderedAscending
+        }
+    }
+
     static func upload(
         markdown: String,
         frontmatter: BlogFrontmatter,
@@ -140,8 +183,96 @@ enum GitHubBlogUploader {
         let sha: String
     }
 
+    private struct DirectoryItem: Decodable {
+        let name: String
+        let path: String
+        let type: String
+    }
+
+    private struct FileContent: Decodable {
+        let content: String?
+        let encoding: String?
+    }
+
     private struct APIErrorBody: Decodable {
         let message: String?
+    }
+
+    private static func contentsAPIURL(path: String, settings: BlogUploadSettings) -> URL {
+        let encodedPath = path
+            .split(separator: "/")
+            .map { $0.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? String($0) }
+            .joined(separator: "/")
+        var components = URLComponents(
+            string: "https://api.github.com/repos/\(settings.owner)/\(settings.repo)/contents/\(encodedPath)"
+        )!
+        components.queryItems = [URLQueryItem(name: "ref", value: settings.branch)]
+        return components.url!
+    }
+
+    private static func authorizedRequest(url: URL, method: String, token: String) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("YKMarkdown", forHTTPHeaderField: "User-Agent")
+        return request
+    }
+
+    private static func listDirectory(
+        path: String,
+        settings: BlogUploadSettings,
+        token: String
+    ) async throws -> [DirectoryItem] {
+        let url = contentsAPIURL(path: path, settings: settings)
+        let request = authorizedRequest(url: url, method: "GET", token: token)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+        if code == 404 { return [] }
+        guard (200...299).contains(code) else {
+            let message = (try? JSONDecoder().decode(APIErrorBody.self, from: data))?.message
+                ?? String(data: data, encoding: .utf8)
+                ?? "Unknown error"
+            throw UploadError.http(code, message)
+        }
+        do {
+            return try JSONDecoder().decode([DirectoryItem].self, from: data)
+        } catch {
+            throw UploadError.decoding
+        }
+    }
+
+    private static func fetchFileText(
+        path: String,
+        settings: BlogUploadSettings,
+        token: String
+    ) async throws -> String {
+        let url = contentsAPIURL(path: path, settings: settings)
+        let request = authorizedRequest(url: url, method: "GET", token: token)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+        guard (200...299).contains(code) else {
+            let message = (try? JSONDecoder().decode(APIErrorBody.self, from: data))?.message
+                ?? String(data: data, encoding: .utf8)
+                ?? "Unknown error"
+            throw UploadError.http(code, message)
+        }
+        do {
+            let file = try JSONDecoder().decode(FileContent.self, from: data)
+            guard let content = file.content else { throw UploadError.decoding }
+            let cleaned = content.replacingOccurrences(of: "\n", with: "")
+            guard let decoded = Data(base64Encoded: cleaned),
+                  let text = String(data: decoded, encoding: .utf8)
+            else {
+                throw UploadError.decoding
+            }
+            return text
+        } catch let error as UploadError {
+            throw error
+        } catch {
+            throw UploadError.decoding
+        }
     }
 
     private static func putFile(
