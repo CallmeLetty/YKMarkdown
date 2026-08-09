@@ -24,3 +24,14 @@
    Done by: CURSOR
    Done at: 2026-07-25T07:01:17Z
 
+3. clarify-slug-validation-message
+   Id: 3-clarify-slug-validation-message
+   Scope: Clarify invalid slug error/UI copy to mention lowercase letters, digits, and hyphens
+   Files: Sources/GitHubBlogUploader.swift,Sources/BlogUploadSheet.swift
+   Note: Updated slug field label and invalid-slug error to mention lowercase + example
+   Detail: tasks/details/3-clarify-slug-validation-message.md
+   Claimed by: CURSOR
+   Claimed at: 2026-08-09T02:01:15Z
+   Done by: CURSOR
+   Done at: 2026-08-09T02:01:17Z
+

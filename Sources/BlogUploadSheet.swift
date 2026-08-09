@@ -38,7 +38,7 @@ struct BlogUploadSheet: View {
                     isLoading: isLoadingTags
                 )
                 TextField("摘要 excerpt", text: $excerpt)
-                TextField("文件名 slug", text: $slug)
+                TextField("文件名 slug（小写字母、数字、连字符）", text: $slug)
                     .onChange(of: title) { _, newValue in
                         if slugIsDerivedFromTitle {
                             slug = BlogSlug.make(from: newValue)

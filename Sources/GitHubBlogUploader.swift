@@ -42,7 +42,7 @@ enum GitHubBlogUploader {
             case .invalidSettings:
                 return "仓库配置不完整，请检查设置里的 Owner / Repo。"
             case .invalidSlug:
-                return "文件名（slug）无效，请使用字母、数字和连字符。"
+                return "文件名（slug）无效，请使用小写字母、数字和连字符（例如 corner-radius）。"
             case .http(let code, let message):
                 return "GitHub API 错误 (\(code)): \(message)"
             case .decoding:
