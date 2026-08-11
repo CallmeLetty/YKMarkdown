@@ -57,9 +57,10 @@ enum MarkdownHTMLRenderer {
               line-height: 1.25;
               margin: 1.4em 0 0.6em;
               font-weight: 700;
+              scroll-margin-top: 20px;
             }
-            h1 { font-size: 1.9em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
-            h2 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: 0.25em; }
+            h1 { font-size: 1.9em; }
+            h2 { font-size: 1.5em; }
             h3 { font-size: 1.25em; }
             p, ul, ol, pre, blockquote, table { margin: 0 0 1em; }
             a { color: var(--link); text-decoration: none; }
@@ -133,6 +134,10 @@ enum MarkdownHTMLRenderer {
 
             let emitTimer = null;
             let suppressEmit = false;
+            const headingSelector = 'h1, h2, h3, h4, h5, h6';
+            const activeHeadingThreshold = 36;
+            let activeHeadingTimer = null;
+            let activeHeadingID = null;
 
             function post(payload) {
               if (window.webkit && webkit.messageHandlers && webkit.messageHandlers.bridge) {
@@ -154,9 +159,40 @@ enum MarkdownHTMLRenderer {
               emitTimer = setTimeout(emitMarkdown, 100);
             }
 
-            content.addEventListener('input', scheduleEmit);
+            function ensureHeadingIDs() {
+              content.querySelectorAll(headingSelector).forEach(function (heading, index) {
+                heading.id = 'yk-heading-' + index;
+              });
+            }
+
+            function reportActiveHeading() {
+              const headings = Array.from(content.querySelectorAll(headingSelector));
+              let active = headings.length ? headings[0] : null;
+              headings.forEach(function (heading) {
+                if (heading.getBoundingClientRect().top <= activeHeadingThreshold) {
+                  active = heading;
+                }
+              });
+              const id = active ? active.id : null;
+              if (activeHeadingID !== id) {
+                activeHeadingID = id;
+                post({ type: 'activeHeadingChanged', id: id });
+              }
+            }
+
+            function scheduleActiveHeadingReport() {
+              clearTimeout(activeHeadingTimer);
+              activeHeadingTimer = setTimeout(reportActiveHeading, 50);
+            }
+
+            content.addEventListener('input', function () {
+              ensureHeadingIDs();
+              scheduleEmit();
+              scheduleActiveHeadingReport();
+            });
             content.addEventListener('keyup', scheduleEmit);
             content.addEventListener('cut', scheduleEmit);
+            window.addEventListener('scroll', scheduleActiveHeadingReport, { passive: true });
 
             content.addEventListener('paste', function (event) {
               const items = event.clipboardData ? event.clipboardData.items : null;
@@ -200,7 +236,19 @@ enum MarkdownHTMLRenderer {
               if (content.innerHTML !== htmlValue) {
                 content.innerHTML = htmlValue;
               }
+              ensureHeadingIDs();
               suppressEmit = false;
+              requestAnimationFrame(reportActiveHeading);
+            };
+
+            window.scrollToHeading = function (id) {
+              ensureHeadingIDs();
+              const heading = document.getElementById(id);
+              if (!heading) return;
+              heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              activeHeadingID = id;
+              post({ type: 'activeHeadingChanged', id: id });
+              setTimeout(reportActiveHeading, 350);
             };
 
             window.insertImageAtCaret = function (src, alt) {
@@ -217,6 +265,9 @@ enum MarkdownHTMLRenderer {
             window.focusEditor = function () {
               content.focus();
             };
+
+            ensureHeadingIDs();
+            requestAnimationFrame(reportActiveHeading);
           })();
           </script>
         </body>
@@ -235,6 +286,7 @@ enum MarkdownHTMLRenderer {
         var paragraph: [String] = []
         var listKind: ListKind?
         var listItems: [String] = []
+        var headingIndex = 0
 
         func flushParagraph() {
             guard !paragraph.isEmpty else { return }
@@ -288,7 +340,7 @@ enum MarkdownHTMLRenderer {
                 continue
             }
 
-            if trimmed == "---" || trimmed == "***" || trimmed == "___" {
+            if trimmed == "---" {
                 flushParagraph()
                 flushList()
                 html.append("<hr />")
@@ -299,7 +351,9 @@ enum MarkdownHTMLRenderer {
             if let heading = parseHeading(trimmed) {
                 flushParagraph()
                 flushList()
-                html.append("<h\(heading.level)>\(renderInline(heading.text))</h\(heading.level)>")
+                let id = "yk-heading-\(headingIndex)"
+                html.append("<h\(heading.level) id=\"\(id)\">\(renderInline(heading.text))</h\(heading.level)>")
+                headingIndex += 1
                 index += 1
                 continue
             }

@@ -4,7 +4,7 @@ import XCTest
 final class YKMarkdownTests: XCTestCase {
     func testRendererConvertsHeadingAndEmphasis() {
         let html = MarkdownHTMLRenderer.bodyHTML(from: "# Title\n\nHello **world**")
-        XCTAssertTrue(html.contains("<h1>Title</h1>"))
+        XCTAssertTrue(html.contains("<h1 id=\"yk-heading-0\">Title</h1>"))
         XCTAssertTrue(html.contains("<strong>world</strong>"))
     }
 

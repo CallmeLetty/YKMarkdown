@@ -10,6 +10,8 @@ struct MarkdownPreviewView: NSViewRepresentable {
     var onPasteImages: () -> Void
     var onDropImages: ([URL]) -> Void
     var insertImageRequest: InsertImageRequest?
+    var headingNavigationRequest: HeadingNavigationRequest?
+    var onActiveHeadingChange: (String?) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -54,6 +56,12 @@ struct MarkdownPreviewView: NSViewRepresentable {
             context.coordinator.lastInsertToken = request.token
             context.coordinator.insertImage(path: request.relativePath, alt: request.altText)
         }
+
+        if let request = headingNavigationRequest,
+           context.coordinator.lastNavigationToken != request.token {
+            context.coordinator.lastNavigationToken = request.token
+            context.coordinator.navigate(to: request.heading.id)
+        }
     }
 
     struct InsertImageRequest: Equatable {
@@ -69,9 +77,11 @@ struct MarkdownPreviewView: NSViewRepresentable {
         var baseURL: URL?
         var lastAppliedMarkdown = ""
         var lastInsertToken: UUID?
+        var lastNavigationToken: UUID?
         private var isPageReady = false
         private var isUpdatingFromPreview = false
         private var pendingBodyHTML: String?
+        private var pendingHeadingID: String?
 
         init(parent: MarkdownPreviewView) {
             self.parent = parent
@@ -109,6 +119,15 @@ struct MarkdownPreviewView: NSViewRepresentable {
             webView.evaluateJavaScript(script, completionHandler: nil)
         }
 
+        func navigate(to headingID: String) {
+            guard isPageReady, let webView else {
+                pendingHeadingID = headingID
+                return
+            }
+            let script = "window.scrollToHeading(\(Self.jsString(headingID)));"
+            webView.evaluateJavaScript(script, completionHandler: nil)
+        }
+
         func userContentController(
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
@@ -140,6 +159,9 @@ struct MarkdownPreviewView: NSViewRepresentable {
                     NSWorkspace.shared.open(url)
                 }
 
+            case "activeHeadingChanged":
+                parent.onActiveHeadingChange(body["id"] as? String)
+
             default:
                 break
             }
@@ -150,6 +172,10 @@ struct MarkdownPreviewView: NSViewRepresentable {
             if let pendingBodyHTML {
                 setBodyHTML(pendingBodyHTML)
                 self.pendingBodyHTML = nil
+            }
+            if let pendingHeadingID {
+                navigate(to: pendingHeadingID)
+                self.pendingHeadingID = nil
             }
         }
 

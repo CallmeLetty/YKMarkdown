@@ -11,8 +11,11 @@ struct EditorView: View {
     @AppStorage("blogBranch") private var blogBranch = BlogUploadSettings.default.branch
     @AppStorage("blogContentDirectory") private var blogContentDirectory = BlogUploadSettings.default.contentDirectory
     @AppStorage("editorFontSize") private var editorFontSize = 14.0
+    @AppStorage("outlineSidebarVisible") private var isOutlineVisible = true
 
     @State private var layout: EditorLayout = .split
+    @State private var activeHeadingID: String?
+    @State private var headingNavigationRequest: HeadingNavigationRequest?
     @State private var insertImageRequest: MarkdownPreviewView.InsertImageRequest?
     @State private var showSaveFirstAlert = false
     @State private var saveFirstMessage = "插入图片前，请先保存 Markdown 文件。"
@@ -24,25 +27,35 @@ struct EditorView: View {
     @State private var uploadedFileURL: URL?
 
     var body: some View {
-        VStack(spacing: 0) {
-            switch layout {
-            case .editorOnly:
-                editorPane
-            case .previewOnly:
-                previewPane
-            case .split:
+        Group {
+            if isOutlineVisible {
                 HSplitView {
-                    editorPane
-                        .frame(minWidth: 280)
-                    previewPane
-                        .frame(minWidth: 280)
+                    MarkdownOutlineSidebar(
+                        headings: headings,
+                        activeHeadingID: activeHeadingID,
+                        onSelect: navigate(to:),
+                        onClose: { isOutlineVisible = false }
+                    )
+                    .frame(minWidth: 160, idealWidth: 200, maxWidth: 400)
+
+                    documentLayout
+                        .frame(minWidth: 640, idealWidth: 800)
                 }
+            } else {
+                documentLayout
             }
         }
-        .frame(minWidth: 720, minHeight: 480)
+        .frame(minWidth: isOutlineVisible ? 800 : 720, minHeight: 480)
         .background(Color(nsColor: .textBackgroundColor))
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
+                Button {
+                    isOutlineVisible.toggle()
+                } label: {
+                    Label("Outline", systemImage: "sidebar.left")
+                }
+                .help(isOutlineVisible ? "Hide document outline" : "Show document outline")
+
                 Picker("Layout", selection: $layout) {
                     Label("Editor", systemImage: "square.and.pencil")
                         .tag(EditorLayout.editorOnly)
@@ -104,6 +117,40 @@ struct EditorView: View {
         .onReceive(NotificationCenter.default.publisher(for: .ykUploadBlog)) { _ in
             beginUpload()
         }
+        .onAppear {
+            if activeHeadingID == nil {
+                activeHeadingID = headings.first?.id
+            }
+        }
+        .onChange(of: document.text) { _, _ in
+            guard let activeHeadingID,
+                  headings.contains(where: { $0.id == activeHeadingID })
+            else {
+                self.activeHeadingID = headings.first?.id
+                return
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var documentLayout: some View {
+        switch layout {
+        case .editorOnly:
+            editorPane
+        case .previewOnly:
+            previewPane
+        case .split:
+            HSplitView {
+                editorPane
+                    .frame(minWidth: 320, idealWidth: 400)
+                previewPane
+                    .frame(minWidth: 320, idealWidth: 400)
+            }
+        }
+    }
+
+    private var headings: [MarkdownHeading] {
+        MarkdownOutlineParser.headings(in: document.text)
     }
 
     private var blogSettings: BlogUploadSettings {
@@ -116,10 +163,13 @@ struct EditorView: View {
     }
 
     private var editorPane: some View {
-        TextEditor(text: editorTextBinding)
-            .font(.system(size: editorFontSize, design: .monospaced))
-            .scrollContentBackground(.hidden)
-            .padding(12)
+        MarkdownSourceEditor(
+            text: editorTextBinding,
+            fontSize: editorFontSize,
+            headings: headings,
+            navigationRequest: headingNavigationRequest,
+            onActiveHeadingChange: setActiveHeading
+        )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(nsColor: .textBackgroundColor))
             .accessibilityLabel("Markdown editor")
@@ -138,7 +188,9 @@ struct EditorView: View {
             onDropImages: { urls in
                 importImageURLs(urls, intoPreview: true)
             },
-            insertImageRequest: insertImageRequest
+            insertImageRequest: insertImageRequest,
+            headingNavigationRequest: headingNavigationRequest,
+            onActiveHeadingChange: setActiveHeading
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor))
@@ -150,6 +202,16 @@ struct EditorView: View {
             get: { document.text },
             set: { document.text = $0 }
         )
+    }
+
+    private func navigate(to heading: MarkdownHeading) {
+        activeHeadingID = heading.id
+        headingNavigationRequest = HeadingNavigationRequest(token: UUID(), heading: heading)
+    }
+
+    private func setActiveHeading(_ id: String?) {
+        guard activeHeadingID != id else { return }
+        activeHeadingID = id
     }
 
     private func beginUpload() {
