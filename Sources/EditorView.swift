@@ -28,9 +28,10 @@ struct EditorView: View {
 
     var body: some View {
         Group {
-            switch (isOutlineVisible, layout) {
-            case (true, .split):
+            switch layout {
+            case .split:
                 ThreePaneSplitView(
+                    isLeadingVisible: isOutlineVisible,
                     initialFractions: (leading: 0.2, middle: 0.4),
                     minimumWidths: (leading: 160, middle: 280, trailing: 280)
                 ) {
@@ -41,32 +42,27 @@ struct EditorView: View {
                     previewPane
                 }
 
-            case (true, .editorOnly):
-                TwoPaneSplitView(initialLeadingFraction: 0.2, minimumWidths: (160, 320)) {
+            case .editorOnly:
+                TwoPaneSplitView(
+                    isLeadingVisible: isOutlineVisible,
+                    initialLeadingFraction: 0.2,
+                    minimumWidths: (160, 320)
+                ) {
                     outlinePane
                 } trailing: {
                     editorPane
                 }
 
-            case (true, .previewOnly):
-                TwoPaneSplitView(initialLeadingFraction: 0.2, minimumWidths: (160, 320)) {
+            case .previewOnly:
+                TwoPaneSplitView(
+                    isLeadingVisible: isOutlineVisible,
+                    initialLeadingFraction: 0.2,
+                    minimumWidths: (160, 320)
+                ) {
                     outlinePane
                 } trailing: {
                     previewPane
                 }
-
-            case (false, .split):
-                TwoPaneSplitView(initialLeadingFraction: 0.5, minimumWidths: (320, 320)) {
-                    editorPane
-                } trailing: {
-                    previewPane
-                }
-
-            case (false, .editorOnly):
-                editorPane
-
-            case (false, .previewOnly):
-                previewPane
             }
         }
         .frame(minWidth: isOutlineVisible ? 800 : 720, minHeight: 480)
@@ -74,7 +70,7 @@ struct EditorView: View {
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
                 Button {
-                    isOutlineVisible.toggle()
+                    setOutlineVisible(!isOutlineVisible)
                 } label: {
                     Label("Outline", systemImage: "sidebar.left")
                 }
@@ -160,8 +156,14 @@ struct EditorView: View {
             headings: headings,
             activeHeadingID: activeHeadingID,
             onSelect: navigate(to:),
-            onClose: { isOutlineVisible = false }
+            onClose: { setOutlineVisible(false) }
         )
+    }
+
+    private func setOutlineVisible(_ isVisible: Bool) {
+        withAnimation(.easeInOut(duration: 0.22)) {
+            isOutlineVisible = isVisible
+        }
     }
 
     private var headings: [MarkdownHeading] {

@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct TwoPaneSplitView<Leading: View, Trailing: View>: View {
+    let isLeadingVisible: Bool
     let initialLeadingFraction: CGFloat
     let minimumWidths: (leading: CGFloat, trailing: CGFloat)
     @ViewBuilder let leading: () -> Leading
@@ -11,11 +12,13 @@ struct TwoPaneSplitView<Leading: View, Trailing: View>: View {
     @State private var dragStartFraction: CGFloat?
 
     init(
+        isLeadingVisible: Bool,
         initialLeadingFraction: CGFloat,
         minimumWidths: (leading: CGFloat, trailing: CGFloat),
         @ViewBuilder leading: @escaping () -> Leading,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) {
+        self.isLeadingVisible = isLeadingVisible
         self.initialLeadingFraction = initialLeadingFraction
         self.minimumWidths = minimumWidths
         self.leading = leading
@@ -25,13 +28,16 @@ struct TwoPaneSplitView<Leading: View, Trailing: View>: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let availableWidth = max(geometry.size.width - SplitDivider.width, 1)
-            let leadingWidth = resolvedLeadingWidth(in: availableWidth)
+            let dividerWidth = isLeadingVisible ? SplitDivider.width : 0
+            let availableWidth = max(geometry.size.width - dividerWidth, 1)
+            let leadingWidth = isLeadingVisible ? resolvedLeadingWidth(in: availableWidth) : 0
 
             HStack(spacing: 0) {
                 leading()
                     .frame(width: leadingWidth)
                     .clipped()
+                    .opacity(isLeadingVisible ? 1 : 0)
+                    .offset(x: isLeadingVisible ? 0 : -18)
 
                 SplitDivider {
                     dragStartFraction = dragStartFraction ?? leadingFraction
@@ -40,11 +46,15 @@ struct TwoPaneSplitView<Leading: View, Trailing: View>: View {
                 } onEnded: {
                     dragStartFraction = nil
                 }
+                .frame(width: dividerWidth)
+                .opacity(isLeadingVisible ? 1 : 0)
+                .allowsHitTesting(isLeadingVisible)
 
                 trailing()
                     .frame(width: availableWidth - leadingWidth)
                     .clipped()
             }
+            .animation(.easeInOut(duration: 0.22), value: isLeadingVisible)
         }
     }
 
@@ -60,6 +70,7 @@ struct TwoPaneSplitView<Leading: View, Trailing: View>: View {
 }
 
 struct ThreePaneSplitView<Leading: View, Middle: View, Trailing: View>: View {
+    let isLeadingVisible: Bool
     let initialFractions: (leading: CGFloat, middle: CGFloat)
     let minimumWidths: (leading: CGFloat, middle: CGFloat, trailing: CGFloat)
     @ViewBuilder let leading: () -> Leading
@@ -72,12 +83,14 @@ struct ThreePaneSplitView<Leading: View, Middle: View, Trailing: View>: View {
     @State private var secondDragStart: CGFloat?
 
     init(
+        isLeadingVisible: Bool,
         initialFractions: (leading: CGFloat, middle: CGFloat),
         minimumWidths: (leading: CGFloat, middle: CGFloat, trailing: CGFloat),
         @ViewBuilder leading: @escaping () -> Leading,
         @ViewBuilder middle: @escaping () -> Middle,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) {
+        self.isLeadingVisible = isLeadingVisible
         self.initialFractions = initialFractions
         self.minimumWidths = minimumWidths
         self.leading = leading
@@ -89,16 +102,24 @@ struct ThreePaneSplitView<Leading: View, Middle: View, Trailing: View>: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let availableWidth = max(geometry.size.width - SplitDivider.width * 2, 1)
+            let leadingDividerWidth = isLeadingVisible ? SplitDivider.width : 0
+            let availableWidth = max(
+                geometry.size.width - SplitDivider.width - leadingDividerWidth,
+                1
+            )
             let boundaries = resolvedBoundaries(in: availableWidth)
-            let leadingWidth = boundaries.leading * availableWidth
-            let middleWidth = (boundaries.trailingStart - boundaries.leading) * availableWidth
+            let leadingWidth = isLeadingVisible ? boundaries.leading * availableWidth : 0
+            let middleWidth = isLeadingVisible
+                ? (boundaries.trailingStart - boundaries.leading) * availableWidth
+                : availableWidth * 0.5
             let trailingWidth = availableWidth - leadingWidth - middleWidth
 
             HStack(spacing: 0) {
                 leading()
                     .frame(width: leadingWidth)
                     .clipped()
+                    .opacity(isLeadingVisible ? 1 : 0)
+                    .offset(x: isLeadingVisible ? 0 : -18)
 
                 SplitDivider {
                     firstDragStart = firstDragStart ?? leadingFraction
@@ -111,6 +132,9 @@ struct ThreePaneSplitView<Leading: View, Middle: View, Trailing: View>: View {
                 } onEnded: {
                     firstDragStart = nil
                 }
+                .frame(width: leadingDividerWidth)
+                .opacity(isLeadingVisible ? 1 : 0)
+                .allowsHitTesting(isLeadingVisible)
 
                 middle()
                     .frame(width: middleWidth)
@@ -132,6 +156,7 @@ struct ThreePaneSplitView<Leading: View, Middle: View, Trailing: View>: View {
                     .frame(width: trailingWidth)
                     .clipped()
             }
+            .animation(.easeInOut(duration: 0.22), value: isLeadingVisible)
         }
     }
 
