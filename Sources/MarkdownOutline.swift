@@ -1,6 +1,209 @@
 import AppKit
 import SwiftUI
 
+struct TwoPaneSplitView<Leading: View, Trailing: View>: View {
+    let initialLeadingFraction: CGFloat
+    let minimumWidths: (leading: CGFloat, trailing: CGFloat)
+    @ViewBuilder let leading: () -> Leading
+    @ViewBuilder let trailing: () -> Trailing
+
+    @State private var leadingFraction: CGFloat
+    @State private var dragStartFraction: CGFloat?
+
+    init(
+        initialLeadingFraction: CGFloat,
+        minimumWidths: (leading: CGFloat, trailing: CGFloat),
+        @ViewBuilder leading: @escaping () -> Leading,
+        @ViewBuilder trailing: @escaping () -> Trailing
+    ) {
+        self.initialLeadingFraction = initialLeadingFraction
+        self.minimumWidths = minimumWidths
+        self.leading = leading
+        self.trailing = trailing
+        _leadingFraction = State(initialValue: initialLeadingFraction)
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let availableWidth = max(geometry.size.width - SplitDivider.width, 1)
+            let leadingWidth = resolvedLeadingWidth(in: availableWidth)
+
+            HStack(spacing: 0) {
+                leading()
+                    .frame(width: leadingWidth)
+                    .clipped()
+
+                SplitDivider {
+                    dragStartFraction = dragStartFraction ?? leadingFraction
+                    let proposed = (dragStartFraction ?? leadingFraction) + $0 / availableWidth
+                    leadingFraction = clampedLeadingFraction(proposed, in: availableWidth)
+                } onEnded: {
+                    dragStartFraction = nil
+                }
+
+                trailing()
+                    .frame(width: availableWidth - leadingWidth)
+                    .clipped()
+            }
+        }
+    }
+
+    private func resolvedLeadingWidth(in availableWidth: CGFloat) -> CGFloat {
+        clampedLeadingFraction(leadingFraction, in: availableWidth) * availableWidth
+    }
+
+    private func clampedLeadingFraction(_ proposed: CGFloat, in availableWidth: CGFloat) -> CGFloat {
+        let minimum = min(minimumWidths.leading / availableWidth, 0.5)
+        let maximum = max(1 - minimumWidths.trailing / availableWidth, 0.5)
+        return min(max(proposed, minimum), maximum)
+    }
+}
+
+struct ThreePaneSplitView<Leading: View, Middle: View, Trailing: View>: View {
+    let initialFractions: (leading: CGFloat, middle: CGFloat)
+    let minimumWidths: (leading: CGFloat, middle: CGFloat, trailing: CGFloat)
+    @ViewBuilder let leading: () -> Leading
+    @ViewBuilder let middle: () -> Middle
+    @ViewBuilder let trailing: () -> Trailing
+
+    @State private var leadingFraction: CGFloat
+    @State private var trailingStartFraction: CGFloat
+    @State private var firstDragStart: CGFloat?
+    @State private var secondDragStart: CGFloat?
+
+    init(
+        initialFractions: (leading: CGFloat, middle: CGFloat),
+        minimumWidths: (leading: CGFloat, middle: CGFloat, trailing: CGFloat),
+        @ViewBuilder leading: @escaping () -> Leading,
+        @ViewBuilder middle: @escaping () -> Middle,
+        @ViewBuilder trailing: @escaping () -> Trailing
+    ) {
+        self.initialFractions = initialFractions
+        self.minimumWidths = minimumWidths
+        self.leading = leading
+        self.middle = middle
+        self.trailing = trailing
+        _leadingFraction = State(initialValue: initialFractions.leading)
+        _trailingStartFraction = State(initialValue: initialFractions.leading + initialFractions.middle)
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let availableWidth = max(geometry.size.width - SplitDivider.width * 2, 1)
+            let boundaries = resolvedBoundaries(in: availableWidth)
+            let leadingWidth = boundaries.leading * availableWidth
+            let middleWidth = (boundaries.trailingStart - boundaries.leading) * availableWidth
+            let trailingWidth = availableWidth - leadingWidth - middleWidth
+
+            HStack(spacing: 0) {
+                leading()
+                    .frame(width: leadingWidth)
+                    .clipped()
+
+                SplitDivider {
+                    firstDragStart = firstDragStart ?? leadingFraction
+                    let proposed = (firstDragStart ?? leadingFraction) + $0 / availableWidth
+                    leadingFraction = clampedLeadingBoundary(
+                        proposed,
+                        trailingStart: boundaries.trailingStart,
+                        availableWidth: availableWidth
+                    )
+                } onEnded: {
+                    firstDragStart = nil
+                }
+
+                middle()
+                    .frame(width: middleWidth)
+                    .clipped()
+
+                SplitDivider {
+                    secondDragStart = secondDragStart ?? trailingStartFraction
+                    let proposed = (secondDragStart ?? trailingStartFraction) + $0 / availableWidth
+                    trailingStartFraction = clampedTrailingBoundary(
+                        proposed,
+                        leading: boundaries.leading,
+                        availableWidth: availableWidth
+                    )
+                } onEnded: {
+                    secondDragStart = nil
+                }
+
+                trailing()
+                    .frame(width: trailingWidth)
+                    .clipped()
+            }
+        }
+    }
+
+    private func resolvedBoundaries(in availableWidth: CGFloat) -> (leading: CGFloat, trailingStart: CGFloat) {
+        let resolvedLeading = clampedLeadingBoundary(
+            leadingFraction,
+            trailingStart: trailingStartFraction,
+            availableWidth: availableWidth
+        )
+        let resolvedTrailing = clampedTrailingBoundary(
+            trailingStartFraction,
+            leading: resolvedLeading,
+            availableWidth: availableWidth
+        )
+        return (resolvedLeading, resolvedTrailing)
+    }
+
+    private func clampedLeadingBoundary(
+        _ proposed: CGFloat,
+        trailingStart: CGFloat,
+        availableWidth: CGFloat
+    ) -> CGFloat {
+        let minimum = minimumWidths.leading / availableWidth
+        let maximum = trailingStart - minimumWidths.middle / availableWidth
+        return min(max(proposed, minimum), maximum)
+    }
+
+    private func clampedTrailingBoundary(
+        _ proposed: CGFloat,
+        leading: CGFloat,
+        availableWidth: CGFloat
+    ) -> CGFloat {
+        let minimum = leading + minimumWidths.middle / availableWidth
+        let maximum = 1 - minimumWidths.trailing / availableWidth
+        return min(max(proposed, minimum), maximum)
+    }
+}
+
+private struct SplitDivider: View {
+    static let width: CGFloat = 7
+
+    let onChanged: (CGFloat) -> Void
+    let onEnded: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        ZStack {
+            Color.clear
+            Rectangle()
+                .fill(Color(nsColor: .separatorColor))
+                .frame(width: 1)
+        }
+        .frame(width: Self.width)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovering = hovering
+            if hovering {
+                NSCursor.resizeLeftRight.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+        .background(isHovering ? Color.primary.opacity(0.035) : Color.clear)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { onChanged($0.translation.width) }
+                .onEnded { _ in onEnded() }
+        )
+    }
+}
+
 struct MarkdownHeading: Equatable, Identifiable {
     let id: String
     let level: Int

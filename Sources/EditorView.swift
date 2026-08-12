@@ -28,21 +28,45 @@ struct EditorView: View {
 
     var body: some View {
         Group {
-            if isOutlineVisible {
-                HSplitView {
-                    MarkdownOutlineSidebar(
-                        headings: headings,
-                        activeHeadingID: activeHeadingID,
-                        onSelect: navigate(to:),
-                        onClose: { isOutlineVisible = false }
-                    )
-                    .frame(minWidth: 160, idealWidth: 200, maxWidth: 400)
-
-                    documentLayout
-                        .frame(minWidth: 640, idealWidth: 800)
+            switch (isOutlineVisible, layout) {
+            case (true, .split):
+                ThreePaneSplitView(
+                    initialFractions: (leading: 0.2, middle: 0.4),
+                    minimumWidths: (leading: 160, middle: 280, trailing: 280)
+                ) {
+                    outlinePane
+                } middle: {
+                    editorPane
+                } trailing: {
+                    previewPane
                 }
-            } else {
-                documentLayout
+
+            case (true, .editorOnly):
+                TwoPaneSplitView(initialLeadingFraction: 0.2, minimumWidths: (160, 320)) {
+                    outlinePane
+                } trailing: {
+                    editorPane
+                }
+
+            case (true, .previewOnly):
+                TwoPaneSplitView(initialLeadingFraction: 0.2, minimumWidths: (160, 320)) {
+                    outlinePane
+                } trailing: {
+                    previewPane
+                }
+
+            case (false, .split):
+                TwoPaneSplitView(initialLeadingFraction: 0.5, minimumWidths: (320, 320)) {
+                    editorPane
+                } trailing: {
+                    previewPane
+                }
+
+            case (false, .editorOnly):
+                editorPane
+
+            case (false, .previewOnly):
+                previewPane
             }
         }
         .frame(minWidth: isOutlineVisible ? 800 : 720, minHeight: 480)
@@ -131,21 +155,13 @@ struct EditorView: View {
         }
     }
 
-    @ViewBuilder
-    private var documentLayout: some View {
-        switch layout {
-        case .editorOnly:
-            editorPane
-        case .previewOnly:
-            previewPane
-        case .split:
-            HSplitView {
-                editorPane
-                    .frame(minWidth: 320, idealWidth: 400)
-                previewPane
-                    .frame(minWidth: 320, idealWidth: 400)
-            }
-        }
+    private var outlinePane: some View {
+        MarkdownOutlineSidebar(
+            headings: headings,
+            activeHeadingID: activeHeadingID,
+            onSelect: navigate(to:),
+            onClose: { isOutlineVisible = false }
+        )
     }
 
     private var headings: [MarkdownHeading] {
