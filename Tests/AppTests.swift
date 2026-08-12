@@ -34,6 +34,11 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(document.text.contains("# Welcome"))
     }
 
+    func testDocumentOpeningModeDefaultsToTabs() {
+        XCTAssertEqual(DocumentOpeningMode.stored(rawValue: "unknown"), .tabs)
+        XCTAssertEqual(DocumentOpeningMode.stored(rawValue: DocumentOpeningMode.windows.rawValue), .windows)
+    }
+
     func testFrontmatterRoundTrip() {
         let meta = BlogFrontmatter(
             title: "你好",

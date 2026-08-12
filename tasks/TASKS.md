@@ -112,3 +112,25 @@
    Done by: CODEX
    Done at: 2026-08-11T09:11:44Z
 
+11. multi-document-tabs
+   Id: 11-multi-document-tabs
+   Scope: Add configurable Markdown document opening mode with same-window tabs by default and optional separate windows
+   Files: Sources/App.swift,Sources/EditorView.swift,Sources/SettingsView.swift,Tests/AppTests.swift
+   Note: Finished configurable document opening mode: default same-window tabs via AppKit tabbing, optional separate windows, current-focused document commands; git diff --check passed; no build/test per project preference
+   Detail: tasks/details/11-multi-document-tabs.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-12T00:20:50Z
+   Done by: CODEX
+   Done at: 2026-08-12T00:23:15Z
+
+12. fix-document-tab-grouping
+   Id: 12-fix-document-tab-grouping
+   Scope: Actively group simultaneously opened Markdown document windows into tabs when tab opening mode is selected
+   Files: Sources/DocumentOpeningMode.swift,tasks/TASKS.md
+   Note: Fixed simultaneous multi-file open by actively adding new document windows to the existing document tab group in tabs mode; removed async window polling; git diff --check passed; no build/test per project preference
+   Detail: tasks/details/12-fix-document-tab-grouping.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-12T00:26:52Z
+   Done by: CODEX
+   Done at: 2026-08-12T00:30:08Z
+

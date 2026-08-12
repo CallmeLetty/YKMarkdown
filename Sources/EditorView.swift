@@ -111,12 +111,11 @@ struct EditorView: View {
                 onFinished: handleUploadResult
             )
         }
-        .onReceive(NotificationCenter.default.publisher(for: .ykInsertImage)) { _ in
-            insertImagesFromPanel()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .ykUploadBlog)) { _ in
-            beginUpload()
-        }
+        .background(DocumentWindowConfigurator())
+        .focusedValue(\.editorCommandActions, EditorCommandActions(
+            insertImagesFromPanel: insertImagesFromPanel,
+            beginUpload: beginUpload
+        ))
         .onAppear {
             if activeHeadingID == nil {
                 activeHeadingID = headings.first?.id

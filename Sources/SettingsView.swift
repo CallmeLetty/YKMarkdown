@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @AppStorage("editorFontSize") private var editorFontSize = 14.0
+    @AppStorage("documentOpeningMode") private var documentOpeningMode = DocumentOpeningMode.tabs.rawValue
     @AppStorage("blogOwner") private var blogOwner = BlogUploadSettings.default.owner
     @AppStorage("blogRepo") private var blogRepo = BlogUploadSettings.default.repo
     @AppStorage("blogBranch") private var blogBranch = BlogUploadSettings.default.branch
@@ -21,6 +22,20 @@ struct SettingsView: View {
                     Text("22")
                 }
                 Text("Current size: \(Int(editorFontSize)) pt")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("文档") {
+                Picker("打开方式", selection: $documentOpeningMode) {
+                    ForEach(DocumentOpeningMode.allCases) { mode in
+                        Text(mode.title)
+                            .tag(mode.rawValue)
+                    }
+                }
+                .pickerStyle(.inline)
+
+                Text(DocumentOpeningMode.stored(rawValue: documentOpeningMode).note)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
