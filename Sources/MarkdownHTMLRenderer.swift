@@ -9,7 +9,11 @@ enum MarkdownHTMLRenderer {
         return rendered
     }
 
-    static func editableDocument(bodyHTML: String, turndownScript: String) -> String {
+    static func editableDocument(
+        bodyHTML: String,
+        turndownScript: String,
+        accentColorCSS: String = "#0969DA"
+    ) -> String {
         """
         <!DOCTYPE html>
         <html lang="en">
@@ -24,9 +28,9 @@ enum MarkdownHTMLRenderer {
               --border: #d0d7de;
               --code-bg: #f6f8fa;
               --quote-border: #d0d7de;
-              --link: #0969da;
+              --link: \(accentColorCSS);
               --bg: transparent;
-              --focus: rgba(9, 105, 218, 0.18);
+              --focus: color-mix(in srgb, \(accentColorCSS) 20%, transparent);
             }
             @media (prefers-color-scheme: dark) {
               :root {
@@ -35,8 +39,6 @@ enum MarkdownHTMLRenderer {
                 --border: #30363d;
                 --code-bg: #161b22;
                 --quote-border: #3d444d;
-                --link: #2f81f7;
-                --focus: rgba(47, 129, 247, 0.22);
               }
             }
             html, body {
@@ -239,6 +241,14 @@ enum MarkdownHTMLRenderer {
               ensureHeadingIDs();
               suppressEmit = false;
               requestAnimationFrame(reportActiveHeading);
+            };
+
+            window.setAccentColor = function (color) {
+              document.documentElement.style.setProperty('--link', color);
+              document.documentElement.style.setProperty(
+                '--focus',
+                'color-mix(in srgb, ' + color + ' 20%, transparent)'
+              );
             };
 
             window.scrollToHeading = function (id) {

@@ -11,6 +11,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
     var onDropImages: ([URL]) -> Void
     var insertImageRequest: InsertImageRequest?
     var headingNavigationRequest: HeadingNavigationRequest?
+    var themeColorCSS: String
     var onActiveHeadingChange: (String?) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -50,6 +51,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
         }
 
         context.coordinator.applyMarkdownFromSourceIfNeeded(markdown)
+        context.coordinator.applyThemeColorIfNeeded(themeColorCSS)
 
         if let request = insertImageRequest,
            context.coordinator.lastInsertToken != request.token {
@@ -82,6 +84,8 @@ struct MarkdownPreviewView: NSViewRepresentable {
         private var isUpdatingFromPreview = false
         private var pendingBodyHTML: String?
         private var pendingHeadingID: String?
+        private var pendingThemeColor: String?
+        private var lastAppliedThemeColor = ""
 
         init(parent: MarkdownPreviewView) {
             self.parent = parent
@@ -91,14 +95,27 @@ struct MarkdownPreviewView: NSViewRepresentable {
         func loadInitialPage(in webView: WKWebView) {
             isPageReady = false
             lastAppliedMarkdown = parent.markdown
+            lastAppliedThemeColor = parent.themeColorCSS
             let body = MarkdownHTMLRenderer.bodyHTML(from: parent.markdown)
             let html = MarkdownHTMLRenderer.editableDocument(
                 bodyHTML: body,
-                turndownScript: Self.turndownScript
+                turndownScript: Self.turndownScript,
+                accentColorCSS: parent.themeColorCSS
             )
             let loadBase = parent.baseURL?.deletingLastPathComponent()
                 ?? Bundle.main.resourceURL
             webView.loadHTMLString(html, baseURL: loadBase)
+        }
+
+        func applyThemeColorIfNeeded(_ color: String) {
+            guard color != lastAppliedThemeColor else { return }
+            lastAppliedThemeColor = color
+            guard isPageReady, let webView else {
+                pendingThemeColor = color
+                return
+            }
+            let script = "window.setAccentColor(\(Self.jsString(color)));"
+            webView.evaluateJavaScript(script, completionHandler: nil)
         }
 
         func applyMarkdownFromSourceIfNeeded(_ markdown: String) {
@@ -176,6 +193,11 @@ struct MarkdownPreviewView: NSViewRepresentable {
             if let pendingHeadingID {
                 navigate(to: pendingHeadingID)
                 self.pendingHeadingID = nil
+            }
+            if let pendingThemeColor {
+                let script = "window.setAccentColor(\(Self.jsString(pendingThemeColor)));"
+                webView.evaluateJavaScript(script, completionHandler: nil)
+                self.pendingThemeColor = nil
             }
         }
 

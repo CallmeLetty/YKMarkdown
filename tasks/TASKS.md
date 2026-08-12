@@ -134,3 +134,12 @@
    Done by: CODEX
    Done at: 2026-08-12T00:30:08Z
 
+13. configurable-theme-color
+   Id: 13-configurable-theme-color
+   Scope: Add system/custom app theme color setting and apply it to native UI plus Markdown preview accents
+   Files: Sources/AppThemeColor.swift,Sources/App.swift,Sources/EditorView.swift,Sources/SettingsView.swift,Sources/MarkdownPreviewView.swift,Sources/MarkdownHTMLRenderer.swift
+   Note: Added follow-system/custom theme color setting with live native UI, outline highlight, preview link, and focus updates; strict build succeeded; no tests per user preference
+   Claimed by: CODEX
+   Claimed at: 2026-08-12T11:49:41Z
+   Done by: CODEX
+   Done at: 2026-08-12T11:51:29Z

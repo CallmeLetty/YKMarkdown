@@ -3,6 +3,9 @@ import SwiftUI
 
 @main
 struct YKMarkdownApp: App {
+    @AppStorage(AppThemeColor.modeKey) private var themeColorMode = AppThemeColorMode.system.rawValue
+    @AppStorage(AppThemeColor.customHexKey) private var themeColorHex = AppThemeColor.defaultCustomHex
+
     init() {
         // 允许文档窗口参与系统级标签页，具体行为由每个窗口的打开方式设置控制。
         NSWindow.allowsAutomaticWindowTabbing = true
@@ -11,6 +14,7 @@ struct YKMarkdownApp: App {
     var body: some Scene {
         DocumentGroup(newDocument: MarkdownDocument()) { file in
             EditorView(document: file.$document, fileURL: file.fileURL)
+                .tint(AppThemeColor.resolvedColor(modeRawValue: themeColorMode, customHex: themeColorHex))
         }
         .commands {
             EditorDocumentCommands()
@@ -24,6 +28,7 @@ struct YKMarkdownApp: App {
 
         Settings {
             SettingsView()
+                .tint(AppThemeColor.resolvedColor(modeRawValue: themeColorMode, customHex: themeColorHex))
         }
     }
 }

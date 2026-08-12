@@ -318,6 +318,7 @@ enum MarkdownOutlineParser {
 struct MarkdownOutlineSidebar: View {
     let headings: [MarkdownHeading]
     let activeHeadingID: String?
+    let accentColor: Color
     let onSelect: (MarkdownHeading) -> Void
     let onClose: () -> Void
 
@@ -361,7 +362,7 @@ struct MarkdownOutlineSidebar: View {
                                 } label: {
                                     Text(heading.title)
                                         .font(.system(size: fontSize(for: heading.level), weight: fontWeight(for: heading.level)))
-                                        .foregroundStyle(activeHeadingID == heading.id ? Color.accentColor : Color.primary)
+                                        .foregroundStyle(activeHeadingID == heading.id ? accentColor : Color.primary)
                                         .lineLimit(2)
                                         .multilineTextAlignment(.leading)
                                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -370,7 +371,7 @@ struct MarkdownOutlineSidebar: View {
                                         .padding(.vertical, 6)
                                         .background {
                                             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                                .fill(activeHeadingID == heading.id ? Color.accentColor.opacity(0.12) : Color.clear)
+                                                .fill(activeHeadingID == heading.id ? accentColor.opacity(0.12) : Color.clear)
                                         }
                                 }
                                 .buttonStyle(.plain)

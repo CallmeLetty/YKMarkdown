@@ -12,6 +12,8 @@ struct EditorView: View {
     @AppStorage("blogContentDirectory") private var blogContentDirectory = BlogUploadSettings.default.contentDirectory
     @AppStorage("editorFontSize") private var editorFontSize = 14.0
     @AppStorage("outlineSidebarVisible") private var isOutlineVisible = true
+    @AppStorage(AppThemeColor.modeKey) private var themeColorMode = AppThemeColorMode.system.rawValue
+    @AppStorage(AppThemeColor.customHexKey) private var themeColorHex = AppThemeColor.defaultCustomHex
 
     @State private var layout: EditorLayout = .split
     @State private var activeHeadingID: String?
@@ -155,9 +157,18 @@ struct EditorView: View {
         MarkdownOutlineSidebar(
             headings: headings,
             activeHeadingID: activeHeadingID,
+            accentColor: accentColor,
             onSelect: navigate(to:),
             onClose: { setOutlineVisible(false) }
         )
+    }
+
+    private var accentColor: Color {
+        AppThemeColor.resolvedColor(modeRawValue: themeColorMode, customHex: themeColorHex)
+    }
+
+    private var themeColorCSS: String {
+        AppThemeColor.cssColor(modeRawValue: themeColorMode, customHex: themeColorHex)
     }
 
     private func setOutlineVisible(_ isVisible: Bool) {
@@ -207,6 +218,7 @@ struct EditorView: View {
             },
             insertImageRequest: insertImageRequest,
             headingNavigationRequest: headingNavigationRequest,
+            themeColorCSS: themeColorCSS,
             onActiveHeadingChange: setActiveHeading
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -3,6 +3,8 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage("editorFontSize") private var editorFontSize = 14.0
     @AppStorage("documentOpeningMode") private var documentOpeningMode = DocumentOpeningMode.tabs.rawValue
+    @AppStorage(AppThemeColor.modeKey) private var themeColorMode = AppThemeColorMode.system.rawValue
+    @AppStorage(AppThemeColor.customHexKey) private var themeColorHex = AppThemeColor.defaultCustomHex
     @AppStorage("blogOwner") private var blogOwner = BlogUploadSettings.default.owner
     @AppStorage("blogRepo") private var blogRepo = BlogUploadSettings.default.repo
     @AppStorage("blogBranch") private var blogBranch = BlogUploadSettings.default.branch
@@ -22,6 +24,24 @@ struct SettingsView: View {
                     Text("22")
                 }
                 Text("Current size: \(Int(editorFontSize)) pt")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("外观") {
+                Picker("主题色", selection: $themeColorMode) {
+                    ForEach(AppThemeColorMode.allCases) { mode in
+                        Text(mode.title)
+                            .tag(mode.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                if AppThemeColorMode.stored(rawValue: themeColorMode) == .custom {
+                    ColorPicker("自定义颜色", selection: customThemeColor, supportsOpacity: false)
+                }
+
+                Text("用于工具栏控件、目录高亮和预览链接。")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
@@ -75,11 +95,21 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(minWidth: 420, minHeight: 420)
         .padding()
+        .animation(.easeInOut(duration: 0.18), value: themeColorMode)
         .onAppear {
             if KeychainStore.get(account: GitHubBlogUploader.tokenAccount) != nil {
                 tokenSavedMessage = "钥匙串中已有 Token"
             }
         }
+    }
+
+    private var customThemeColor: Binding<Color> {
+        Binding(
+            get: { AppThemeColor.customColor(hex: themeColorHex) },
+            set: { color in
+                themeColorHex = AppThemeColor.hex(from: color)
+            }
+        )
     }
 
     private func saveToken() {
