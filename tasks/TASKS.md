@@ -139,7 +139,53 @@
    Scope: Add system/custom app theme color setting and apply it to native UI plus Markdown preview accents
    Files: Sources/AppThemeColor.swift,Sources/App.swift,Sources/EditorView.swift,Sources/SettingsView.swift,Sources/MarkdownPreviewView.swift,Sources/MarkdownHTMLRenderer.swift
    Note: Added follow-system/custom theme color setting with live native UI, outline highlight, preview link, and focus updates; strict build succeeded; no tests per user preference
+   Detail: tasks/details/13-configurable-theme-color.md
    Claimed by: CODEX
    Claimed at: 2026-08-12T11:49:41Z
    Done by: CODEX
    Done at: 2026-08-12T11:51:29Z
+
+14. fix-outline-row-hit-area
+   Id: 14-fix-outline-row-hit-area
+   Scope: Expand Markdown outline row hit target to full row width
+   Files: Sources/MarkdownOutline.swift
+   Note: Added full-row contentShape to outline row buttons; not built or linted per project instructions
+   Detail: tasks/details/14-fix-outline-row-hit-area.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-12T15:52:09Z
+   Done by: CODEX
+   Done at: 2026-08-12T15:52:28Z
+
+15. refresh-current-document
+   Id: 15-refresh-current-document
+   Scope: Add toolbar action to reload the current Markdown document from disk with overwrite confirmation
+   Files: Sources/EditorView.swift
+   Note: Added toolbar refresh action that reloads saved/opened documents from disk with overwrite confirmation; not built per project instructions
+   Detail: tasks/details/15-refresh-current-document.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-12T16:11:40Z
+   Done by: CODEX
+   Done at: 2026-08-12T16:12:45Z
+
+16. move-refresh-to-titlebar
+   Id: 16-move-refresh-to-titlebar
+   Scope: Move current document reload action from toolbar into active document titlebar accessory
+   Files: Sources/EditorView.swift,Sources/DocumentOpeningMode.swift
+   Note: Moved reload action into current document titlebar accessory; direct reload when no local conflict, confirmation only before overwriting local edits; not built per project instructions
+   Detail: tasks/details/16-move-refresh-to-titlebar.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-12T16:33:57Z
+   Done by: CODEX
+   Done at: 2026-08-12T16:36:54Z
+
+17. fix-titlebar-main-actor
+   Id: 17-fix-titlebar-main-actor
+   Scope: Fix Swift main actor isolation errors in titlebar reload accessory
+   Files: Sources/DocumentOpeningMode.swift
+   Note: Fixed Swift 6 main actor isolation for titlebar accessory and corrected NSButton API; macOS xcodebuild succeeded
+   Detail: tasks/details/17-fix-titlebar-main-actor.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-12T16:39:12Z
+   Done by: CODEX
+   Done at: 2026-08-12T16:43:12Z
+

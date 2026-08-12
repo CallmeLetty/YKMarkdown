@@ -22,14 +22,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		51E3FCC26DC6A5FC271F2BB0 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		51E3FCC26DC6A5FC271F2BB0 /* Exceptions for "Sources" folder in "YKMarkdown" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = 92A8BD2396CFB24F4D5304F4 /* YKMarkdown */;
 		};
-		AFF4751C1D2241AAFC599890 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		AFF4751C1D2241AAFC599890 /* Exceptions for "Tests" folder in "YKMarkdownTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -42,11 +42,7 @@
 		2D28D8E6AA90E6BD7ECF2759 /* Sources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				51E3FCC26DC6A5FC271F2BB0 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
+				51E3FCC26DC6A5FC271F2BB0 /* Exceptions for "Sources" folder in "YKMarkdown" target */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -54,11 +50,7 @@
 		FEA08E0BE8BDD9A539958A58 /* Tests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				AFF4751C1D2241AAFC599890 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
+				AFF4751C1D2241AAFC599890 /* Exceptions for "Tests" folder in "YKMarkdownTests" target */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -138,8 +130,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
-				TargetAttributes = {
-				};
 			};
 			buildConfigurationList = 4FA9472B6184F000FCEBB96F /* Build configuration list for PBXProject "YKMarkdown" */;
 			developmentRegion = en;

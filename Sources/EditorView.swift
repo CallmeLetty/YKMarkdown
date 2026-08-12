@@ -27,6 +27,9 @@ struct EditorView: View {
     @State private var showUploadSuccess = false
     @State private var uploadSuccessMessage = ""
     @State private var uploadedFileURL: URL?
+    @State private var showReloadConfirmation = false
+    @State private var pendingReloadText: String?
+    @State private var lastKnownDiskText: String?
 
     var body: some View {
         Group {
@@ -115,6 +118,16 @@ struct EditorView: View {
         } message: {
             Text(alertMessage)
         }
+        .alert(reloadConfirmationTitle, isPresented: $showReloadConfirmation) {
+            Button("取消", role: .cancel) {
+                pendingReloadText = nil
+            }
+            Button("刷新", role: .destructive) {
+                applyPendingReload()
+            }
+        } message: {
+            Text("只会刷新当前文档。刷新会用磁盘上的内容替换当前编辑内容，未保存修改会丢失。")
+        }
         .alert("上传成功", isPresented: $showUploadSuccess) {
             if let uploadedFileURL {
                 Button("在 GitHub 打开") {
@@ -133,15 +146,22 @@ struct EditorView: View {
                 onFinished: handleUploadResult
             )
         }
-        .background(DocumentWindowConfigurator())
+        .background(DocumentWindowConfigurator(
+            canReloadDocument: fileURL != nil,
+            onReloadDocument: reloadDocumentFromDisk
+        ))
         .focusedValue(\.editorCommandActions, EditorCommandActions(
             insertImagesFromPanel: insertImagesFromPanel,
             beginUpload: beginUpload
         ))
         .onAppear {
+            syncKnownDiskTextIfNeeded()
             if activeHeadingID == nil {
                 activeHeadingID = headings.first?.id
             }
+        }
+        .onChange(of: fileURL) { _, _ in
+            lastKnownDiskText = fileURL == nil ? nil : document.text
         }
         .onChange(of: document.text) { _, _ in
             guard let activeHeadingID,
@@ -172,7 +192,7 @@ struct EditorView: View {
     }
 
     private func setOutlineVisible(_ isVisible: Bool) {
-        withAnimation(.easeInOut(duration: 0.22)) {
+        withAnimation(.easeInOut(duration: 0.15)) {
             isOutlineVisible = isVisible
         }
     }
@@ -188,6 +208,13 @@ struct EditorView: View {
             branch: blogBranch,
             contentDirectory: blogContentDirectory
         )
+    }
+
+    private var reloadConfirmationTitle: String {
+        guard let fileName = fileURL?.lastPathComponent else {
+            return "刷新当前文档？"
+        }
+        return "刷新 \(fileName)？"
     }
 
     private var editorPane: some View {
@@ -241,6 +268,47 @@ struct EditorView: View {
     private func setActiveHeading(_ id: String?) {
         guard activeHeadingID != id else { return }
         activeHeadingID = id
+    }
+
+    private func reloadDocumentFromDisk() {
+        guard let fileURL else { return }
+        do {
+            let diskText = try String(contentsOf: fileURL, encoding: .utf8)
+            if diskText == document.text {
+                lastKnownDiskText = diskText
+                return
+            }
+            guard hasLocalReloadConflict else {
+                applyReload(text: diskText)
+                return
+            }
+            pendingReloadText = diskText
+            showReloadConfirmation = true
+        } catch {
+            alertMessage = "无法刷新文档：\(error.localizedDescription)"
+            showErrorAlert = true
+        }
+    }
+
+    private func applyPendingReload() {
+        guard let pendingReloadText else { return }
+        applyReload(text: pendingReloadText)
+        self.pendingReloadText = nil
+    }
+
+    private var hasLocalReloadConflict: Bool {
+        guard let lastKnownDiskText else { return true }
+        return document.text != lastKnownDiskText
+    }
+
+    private func applyReload(text: String) {
+        document.text = text
+        lastKnownDiskText = text
+    }
+
+    private func syncKnownDiskTextIfNeeded() {
+        guard fileURL != nil, lastKnownDiskText == nil else { return }
+        lastKnownDiskText = document.text
     }
 
     private func beginUpload() {

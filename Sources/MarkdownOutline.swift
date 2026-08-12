@@ -54,7 +54,7 @@ struct TwoPaneSplitView<Leading: View, Trailing: View>: View {
                     .frame(width: availableWidth - leadingWidth)
                     .clipped()
             }
-            .animation(.easeInOut(duration: 0.22), value: isLeadingVisible)
+            .animation(.easeInOut(duration: 0.15), value: isLeadingVisible)
         }
     }
 
@@ -156,7 +156,7 @@ struct ThreePaneSplitView<Leading: View, Middle: View, Trailing: View>: View {
                     .frame(width: trailingWidth)
                     .clipped()
             }
-            .animation(.easeInOut(duration: 0.22), value: isLeadingVisible)
+            .animation(.easeInOut(duration: 0.15), value: isLeadingVisible)
         }
     }
 
@@ -373,6 +373,7 @@ struct MarkdownOutlineSidebar: View {
                                             RoundedRectangle(cornerRadius: 7, style: .continuous)
                                                 .fill(activeHeadingID == heading.id ? accentColor.opacity(0.12) : Color.clear)
                                         }
+                                        .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
                                 .id(heading.id)
