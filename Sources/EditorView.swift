@@ -81,6 +81,14 @@ struct EditorView: View {
                 }
                 .help(isOutlineVisible ? "Hide document outline" : "Show document outline")
 
+                Button {
+                    reloadDocumentFromDisk()
+                } label: {
+                    Label("Reload Current Document", systemImage: "arrow.clockwise")
+                }
+                .disabled(fileURL == nil)
+                .help("从磁盘重新载入当前文档")
+
                 Picker("Layout", selection: $layout) {
                     Label("Editor", systemImage: "square.and.pencil")
                         .tag(EditorLayout.editorOnly)
@@ -146,10 +154,7 @@ struct EditorView: View {
                 onFinished: handleUploadResult
             )
         }
-        .background(DocumentWindowConfigurator(
-            canReloadDocument: fileURL != nil,
-            onReloadDocument: reloadDocumentFromDisk
-        ))
+        .background(DocumentWindowConfigurator())
         .focusedValue(\.editorCommandActions, EditorCommandActions(
             insertImagesFromPanel: insertImagesFromPanel,
             beginUpload: beginUpload

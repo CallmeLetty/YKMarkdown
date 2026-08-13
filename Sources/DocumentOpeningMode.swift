@@ -44,8 +44,6 @@ struct DocumentWindowConfigurator: NSViewRepresentable {
     private static let documentTabbingIdentifier = "com.yakamoz.YKMarkdown.document"
 
     @AppStorage("documentOpeningMode") private var documentOpeningMode = DocumentOpeningMode.tabs.rawValue
-    let canReloadDocument: Bool
-    let onReloadDocument: () -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -73,15 +71,11 @@ struct DocumentWindowConfigurator: NSViewRepresentable {
         // 同一个标识的文档窗口才能被 AppKit 自动组合成标签页。
         window.tabbingIdentifier = Self.documentTabbingIdentifier
         window.tabbingMode = mode.tabbingMode
-        coordinator.reloadAction = onReloadDocument
 
         if coordinator.window !== window {
-            coordinator.removeTitlebarAccessory()
             coordinator.window = window
             coordinator.didAttemptInitialTabbing = false
         }
-
-        coordinator.updateTitlebarAccessory(canReloadDocument: canReloadDocument)
 
         if mode == .tabs, !coordinator.didAttemptInitialTabbing {
             coordinator.didAttemptInitialTabbing = true
@@ -107,41 +101,6 @@ struct DocumentWindowConfigurator: NSViewRepresentable {
     final class Coordinator {
         weak var window: NSWindow?
         var didAttemptInitialTabbing = false
-        var reloadAction: (() -> Void)?
-        private var reloadAccessory: NSTitlebarAccessoryViewController?
-
-        func updateTitlebarAccessory(canReloadDocument: Bool) {
-            guard let window else { return }
-
-            let accessory: NSTitlebarAccessoryViewController
-            if let reloadAccessory {
-                accessory = reloadAccessory
-            } else {
-                accessory = NSTitlebarAccessoryViewController()
-                accessory.layoutAttribute = .right
-                accessory.view = ReloadDocumentTitlebarButton(target: self)
-                window.addTitlebarAccessoryViewController(accessory)
-                reloadAccessory = accessory
-            }
-
-            accessory.view.isHidden = !canReloadDocument
-            if let button = accessory.view as? NSButton {
-                button.isEnabled = canReloadDocument
-            }
-        }
-
-        func removeTitlebarAccessory() {
-            guard let reloadAccessory else { return }
-            if let window,
-               let index = window.titlebarAccessoryViewControllers.firstIndex(of: reloadAccessory) {
-                window.removeTitlebarAccessoryViewController(at: index)
-            }
-            self.reloadAccessory = nil
-        }
-
-        @objc func reloadCurrentDocument() {
-            reloadAction?()
-        }
     }
 
     @MainActor
@@ -152,25 +111,5 @@ struct DocumentWindowConfigurator: NSViewRepresentable {
             super.viewDidMoveToWindow()
             onWindowChange?(window)
         }
-    }
-}
-
-@MainActor
-private final class ReloadDocumentTitlebarButton: NSButton {
-    init(target: AnyObject) {
-        super.init(frame: NSRect(x: 0, y: 0, width: 28, height: 28))
-        self.target = target
-        action = #selector(DocumentWindowConfigurator.Coordinator.reloadCurrentDocument)
-        bezelStyle = .texturedRounded
-        setButtonType(.momentaryPushIn)
-        image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "重载当前文档")
-        imagePosition = .imageOnly
-        isBordered = false
-        toolTip = "从磁盘重新载入当前文档"
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        nil
     }
 }

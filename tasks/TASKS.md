@@ -189,3 +189,14 @@
    Done by: CODEX
    Done at: 2026-08-12T16:43:12Z
 
+18. move-refresh-next-to-outline
+   Id: 18-move-refresh-next-to-outline
+   Scope: Move reload action from titlebar accessory back into toolbar immediately after outline button
+   Files: Sources/EditorView.swift,Sources/DocumentOpeningMode.swift
+   Note: Moved reload button next to outline toolbar button, removed titlebar accessory code, and verified macOS build succeeded
+   Detail: tasks/details/18-move-refresh-next-to-outline.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-13T00:17:59Z
+   Done by: CODEX
+   Done at: 2026-08-13T00:19:10Z
+
