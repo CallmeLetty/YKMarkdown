@@ -200,3 +200,14 @@
    Done by: CODEX
    Done at: 2026-08-13T00:19:10Z
 
+19. document-file-change-monitoring
+   Id: 19-document-file-change-monitoring
+   Scope: Document real-time Markdown disk change monitoring options, chosen approach, conflict policy, and implementation steps
+   Files: docs/plans/2026-08-16-file-change-monitoring-design.md
+   Note: Added Chinese design doc covering NSFilePresenter, DispatchSource, FSEvent tradeoffs, recommended parent-directory DispatchSource approach, conflict handling, and implementation steps; no build needed
+   Detail: tasks/details/19-document-file-change-monitoring.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-16T02:56:25Z
+   Done by: CODEX
+   Done at: 2026-08-16T02:57:30Z
+
