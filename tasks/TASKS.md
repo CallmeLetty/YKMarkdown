@@ -211,3 +211,35 @@
    Done by: CODEX
    Done at: 2026-08-16T02:57:30Z
 
+20. editor-font-size-shortcuts
+    Id: 19-editor-font-size-shortcuts
+    Scope: Add standard Command+Plus and Command+Minus editor font size controls with persisted 11–22 pt limits
+    Files: Sources/App.swift,Sources/EditorView.swift,Sources/SettingsView.swift,Tests/AppTests.swift,docs/plans/2026-08-13-editor-font-size-shortcuts-design.md
+    Note: Added Format-menu Command+Plus/Command+Minus controls backed by shared persisted 11–22 pt editor font settings, centralized bounds with unit coverage, and verified strict macOS build succeeded; tests and SwiftLint not run per user preference
+    Detail: tasks/details/19-editor-font-size-shortcuts.md
+    Claimed by: CODEX
+    Claimed at: 2026-08-13T03:31:12Z
+    Done by: CODEX
+    Done at: 2026-08-13T03:34:00Z
+
+21. sync-preview-font-size
+    Id: 20-sync-preview-font-size
+    Scope: Make Command+Plus and Command+Minus update both source editor and editable Markdown preview without reloading
+    Files: Sources/EditorView.swift,Sources/MarkdownPreviewView.swift,Sources/MarkdownHTMLRenderer.swift,Tests/AppTests.swift,docs/plans/2026-08-13-editor-font-size-shortcuts-design.md
+    Note: Synchronized persisted font size into Markdown preview CSS with live JavaScript updates that preserve page state; strict macOS build succeeded; tests and SwiftLint not run per user preference
+    Detail: tasks/details/20-sync-preview-font-size.md
+    Claimed by: CODEX
+    Claimed at: 2026-08-13T03:36:53Z
+    Done by: CODEX
+    Done at: 2026-08-13T03:38:22Z
+
+22. source-folder-organization
+    Id: 21-source-folder-organization
+    Scope: Reorganize Sources into App, Views, Features, and Infrastructure folders without changing behavior
+    Files: Sources,project.yml,docs/plans/2026-08-14-source-folder-organization.md
+    Note: Reorganized Sources into App, Views, Features, and Infrastructure folders; updated Info.plist paths; strict macOS build succeeded; file count and unchanged contents verified; tests and SwiftLint not run per user preference
+    Detail: tasks/details/21-source-folder-organization.md
+    Claimed by: CODEX
+    Claimed at: 2026-08-14T03:07:05Z
+    Done by: CODEX
+    Done at: 2026-08-14T03:09:38Z

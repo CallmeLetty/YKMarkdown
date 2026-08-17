@@ -12,6 +12,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
     var insertImageRequest: InsertImageRequest?
     var headingNavigationRequest: HeadingNavigationRequest?
     var themeColorCSS: String
+    var fontSize: Double
     var onActiveHeadingChange: (String?) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -52,6 +53,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
 
         context.coordinator.applyMarkdownFromSourceIfNeeded(markdown)
         context.coordinator.applyThemeColorIfNeeded(themeColorCSS)
+        context.coordinator.applyFontSizeIfNeeded(fontSize)
 
         if let request = insertImageRequest,
            context.coordinator.lastInsertToken != request.token {
@@ -85,7 +87,9 @@ struct MarkdownPreviewView: NSViewRepresentable {
         private var pendingBodyHTML: String?
         private var pendingHeadingID: String?
         private var pendingThemeColor: String?
+        private var pendingFontSize: Double?
         private var lastAppliedThemeColor = ""
+        private var lastAppliedFontSize = 0.0
 
         init(parent: MarkdownPreviewView) {
             self.parent = parent
@@ -96,11 +100,14 @@ struct MarkdownPreviewView: NSViewRepresentable {
             isPageReady = false
             lastAppliedMarkdown = parent.markdown
             lastAppliedThemeColor = parent.themeColorCSS
+            lastAppliedFontSize = parent.fontSize
+            pendingFontSize = nil
             let body = MarkdownHTMLRenderer.bodyHTML(from: parent.markdown)
             let html = MarkdownHTMLRenderer.editableDocument(
                 bodyHTML: body,
                 turndownScript: Self.turndownScript,
-                accentColorCSS: parent.themeColorCSS
+                accentColorCSS: parent.themeColorCSS,
+                fontSize: parent.fontSize
             )
             let loadBase = parent.baseURL?.deletingLastPathComponent()
                 ?? Bundle.main.resourceURL
@@ -115,6 +122,17 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 return
             }
             let script = "window.setAccentColor(\(Self.jsString(color)));"
+            webView.evaluateJavaScript(script, completionHandler: nil)
+        }
+
+        func applyFontSizeIfNeeded(_ fontSize: Double) {
+            guard fontSize != lastAppliedFontSize else { return }
+            lastAppliedFontSize = fontSize
+            guard isPageReady, let webView else {
+                pendingFontSize = fontSize
+                return
+            }
+            let script = "window.setFontSize(\(fontSize));"
             webView.evaluateJavaScript(script, completionHandler: nil)
         }
 
@@ -198,6 +216,11 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 let script = "window.setAccentColor(\(Self.jsString(pendingThemeColor)));"
                 webView.evaluateJavaScript(script, completionHandler: nil)
                 self.pendingThemeColor = nil
+            }
+            if let pendingFontSize {
+                let script = "window.setFontSize(\(pendingFontSize));"
+                webView.evaluateJavaScript(script, completionHandler: nil)
+                self.pendingFontSize = nil
             }
         }
 

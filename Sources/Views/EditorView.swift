@@ -10,7 +10,7 @@ struct EditorView: View {
     @AppStorage("blogRepo") private var blogRepo = BlogUploadSettings.default.repo
     @AppStorage("blogBranch") private var blogBranch = BlogUploadSettings.default.branch
     @AppStorage("blogContentDirectory") private var blogContentDirectory = BlogUploadSettings.default.contentDirectory
-    @AppStorage("editorFontSize") private var editorFontSize = 14.0
+    @AppStorage(EditorFontSize.storageKey) private var editorFontSize = EditorFontSize.defaultValue
     @AppStorage("outlineSidebarVisible") private var isOutlineVisible = true
     @AppStorage(AppThemeColor.modeKey) private var themeColorMode = AppThemeColorMode.system.rawValue
     @AppStorage(AppThemeColor.customHexKey) private var themeColorHex = AppThemeColor.defaultCustomHex
@@ -251,6 +251,7 @@ struct EditorView: View {
             insertImageRequest: insertImageRequest,
             headingNavigationRequest: headingNavigationRequest,
             themeColorCSS: themeColorCSS,
+            fontSize: editorFontSize,
             onActiveHeadingChange: setActiveHeading
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)

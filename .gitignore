@@ -31,3 +31,5 @@ xcuserdata/
 .cursor/
 *.swp
 *~
+
+build

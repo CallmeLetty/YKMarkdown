@@ -33,6 +33,26 @@ struct YKMarkdownApp: App {
     }
 }
 
+enum EditorFontSize {
+    static let storageKey = "editorFontSize"
+    static let defaultValue = 14.0
+    static let minimum = 11.0
+    static let maximum = 22.0
+    static let step = 1.0
+
+    static func increased(from value: Double) -> Double {
+        clamped(value + step)
+    }
+
+    static func decreased(from value: Double) -> Double {
+        clamped(value - step)
+    }
+
+    private static func clamped(_ value: Double) -> Double {
+        min(max(value, minimum), maximum)
+    }
+}
+
 /// 当前获得焦点的文档窗口可响应的菜单命令。
 struct EditorCommandActions {
     let insertImagesFromPanel: () -> Void
@@ -52,6 +72,7 @@ extension FocusedValues {
 
 private struct EditorDocumentCommands: Commands {
     @FocusedValue(\.editorCommandActions) private var editorCommandActions
+    @AppStorage(EditorFontSize.storageKey) private var editorFontSize = EditorFontSize.defaultValue
 
     var body: some Commands {
         CommandGroup(after: .pasteboard) {
@@ -66,6 +87,22 @@ private struct EditorDocumentCommands: Commands {
             }
             .keyboardShortcut("u", modifiers: [.command, .shift])
             .disabled(editorCommandActions == nil)
+        }
+
+        CommandGroup(after: .textFormatting) {
+            Divider()
+
+            Button("Increase Font Size") {
+                editorFontSize = EditorFontSize.increased(from: editorFontSize)
+            }
+            .keyboardShortcut("+", modifiers: [.command])
+            .disabled(editorFontSize >= EditorFontSize.maximum)
+
+            Button("Decrease Font Size") {
+                editorFontSize = EditorFontSize.decreased(from: editorFontSize)
+            }
+            .keyboardShortcut("-", modifiers: [.command])
+            .disabled(editorFontSize <= EditorFontSize.minimum)
         }
     }
 }

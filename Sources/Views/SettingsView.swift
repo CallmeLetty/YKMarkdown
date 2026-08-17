@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @AppStorage("editorFontSize") private var editorFontSize = 14.0
+    @AppStorage(EditorFontSize.storageKey) private var editorFontSize = EditorFontSize.defaultValue
     @AppStorage("documentOpeningMode") private var documentOpeningMode = DocumentOpeningMode.tabs.rawValue
     @AppStorage(AppThemeColor.modeKey) private var themeColorMode = AppThemeColorMode.system.rawValue
     @AppStorage(AppThemeColor.customHexKey) private var themeColorHex = AppThemeColor.defaultCustomHex
@@ -16,12 +16,16 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Editor") {
-                Slider(value: $editorFontSize, in: 11...22, step: 1) {
+                Slider(
+                    value: $editorFontSize,
+                    in: EditorFontSize.minimum...EditorFontSize.maximum,
+                    step: EditorFontSize.step
+                ) {
                     Text("Font Size")
                 } minimumValueLabel: {
-                    Text("11")
+                    Text("\(Int(EditorFontSize.minimum))")
                 } maximumValueLabel: {
-                    Text("22")
+                    Text("\(Int(EditorFontSize.maximum))")
                 }
                 Text("Current size: \(Int(editorFontSize)) pt")
                     .foregroundStyle(.secondary)

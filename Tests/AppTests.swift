@@ -22,10 +22,13 @@ final class YKMarkdownTests: XCTestCase {
     func testEditableDocumentIncludesContentEditable() {
         let html = MarkdownHTMLRenderer.editableDocument(
             bodyHTML: "<p>Hi</p>",
-            turndownScript: "function TurndownService(){}"
+            turndownScript: "function TurndownService(){}",
+            fontSize: 18
         )
         XCTAssertTrue(html.contains("contenteditable=\"true\""))
         XCTAssertTrue(html.contains("markdownChanged"))
+        XCTAssertTrue(html.contains("--font-size: 18.0px"))
+        XCTAssertTrue(html.contains("window.setFontSize"))
     }
 
     func testWelcomeDocumentIsNonEmptyMarkdown() {
@@ -37,6 +40,30 @@ final class YKMarkdownTests: XCTestCase {
     func testDocumentOpeningModeDefaultsToTabs() {
         XCTAssertEqual(DocumentOpeningMode.stored(rawValue: "unknown"), .tabs)
         XCTAssertEqual(DocumentOpeningMode.stored(rawValue: DocumentOpeningMode.windows.rawValue), .windows)
+    }
+
+    func testEditorFontSizeAdjustmentsUseOnePointSteps() {
+        XCTAssertEqual(EditorFontSize.increased(from: 14), 15)
+        XCTAssertEqual(EditorFontSize.decreased(from: 14), 13)
+    }
+
+    func testEditorFontSizeAdjustmentsStopAtBounds() {
+        XCTAssertEqual(
+            EditorFontSize.increased(from: EditorFontSize.maximum),
+            EditorFontSize.maximum
+        )
+        XCTAssertEqual(
+            EditorFontSize.decreased(from: EditorFontSize.minimum),
+            EditorFontSize.minimum
+        )
+        XCTAssertEqual(
+            EditorFontSize.increased(from: EditorFontSize.minimum - 5),
+            EditorFontSize.minimum
+        )
+        XCTAssertEqual(
+            EditorFontSize.decreased(from: EditorFontSize.maximum + 5),
+            EditorFontSize.maximum
+        )
     }
 
     func testFrontmatterRoundTrip() {

@@ -12,7 +12,8 @@ enum MarkdownHTMLRenderer {
     static func editableDocument(
         bodyHTML: String,
         turndownScript: String,
-        accentColorCSS: String = "#0969DA"
+        accentColorCSS: String = "#0969DA",
+        fontSize: Double = 14
     ) -> String {
         """
         <!DOCTYPE html>
@@ -31,6 +32,7 @@ enum MarkdownHTMLRenderer {
               --link: \(accentColorCSS);
               --bg: transparent;
               --focus: color-mix(in srgb, \(accentColorCSS) 20%, transparent);
+              --font-size: \(fontSize)px;
             }
             @media (prefers-color-scheme: dark) {
               :root {
@@ -46,7 +48,9 @@ enum MarkdownHTMLRenderer {
               padding: 0;
               background: var(--bg);
               color: var(--text);
-              font: 15px/1.65 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+              font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+              font-size: var(--font-size);
+              line-height: 1.65;
               height: 100%;
             }
             #content {
@@ -249,6 +253,12 @@ enum MarkdownHTMLRenderer {
                 '--focus',
                 'color-mix(in srgb, ' + color + ' 20%, transparent)'
               );
+            };
+
+            window.setFontSize = function (fontSize) {
+              const value = Number(fontSize);
+              if (!Number.isFinite(value)) return;
+              document.documentElement.style.setProperty('--font-size', value + 'px');
             };
 
             window.scrollToHeading = function (id) {
