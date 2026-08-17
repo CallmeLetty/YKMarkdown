@@ -3,10 +3,14 @@ import Foundation
 enum MarkdownHTMLRenderer {
     static func bodyHTML(from markdown: String) -> String {
         let rendered = renderBody(markdown)
-        if rendered.isEmpty {
+        if rendered.html.isEmpty {
             return "<p><br></p>"
         }
-        return rendered
+        return rendered.html
+    }
+
+    static func sourceOffsets(from markdown: String) -> [Int] {
+        renderBody(markdown).sourceOffsets
     }
 
     static func editableDocument(
@@ -144,6 +148,10 @@ enum MarkdownHTMLRenderer {
             const activeHeadingThreshold = 36;
             let activeHeadingTimer = null;
             let activeHeadingID = null;
+            const sourceAnchorSelector = '[data-source-offset]';
+            let scrollAnchorFrame = null;
+            let lastReportedSourceOffset = null;
+            let suppressScrollAnchorReport = false;
 
             function post(payload) {
               if (window.webkit && webkit.messageHandlers && webkit.messageHandlers.bridge) {
@@ -191,6 +199,37 @@ enum MarkdownHTMLRenderer {
               activeHeadingTimer = setTimeout(reportActiveHeading, 50);
             }
 
+            function sourceAnchors() {
+              return Array.from(content.querySelectorAll(sourceAnchorSelector)).filter(function (element) {
+                return Number.isFinite(Number(element.dataset.sourceOffset));
+              });
+            }
+
+            function reportScrollAnchor() {
+              if (suppressScrollAnchorReport) return;
+              const anchors = sourceAnchors();
+              if (!anchors.length) return;
+              const viewportTop = 20;
+              let active = anchors[0];
+              anchors.forEach(function (anchor) {
+                if (anchor.getBoundingClientRect().top <= viewportTop) {
+                  active = anchor;
+                }
+              });
+              const sourceOffset = Number(active.dataset.sourceOffset);
+              if (sourceOffset === lastReportedSourceOffset) return;
+              lastReportedSourceOffset = sourceOffset;
+              post({ type: 'scrollAnchorChanged', sourceOffset: sourceOffset });
+            }
+
+            function scheduleScrollAnchorReport() {
+              if (scrollAnchorFrame !== null) return;
+              scrollAnchorFrame = requestAnimationFrame(function () {
+                scrollAnchorFrame = null;
+                reportScrollAnchor();
+              });
+            }
+
             content.addEventListener('input', function () {
               ensureHeadingIDs();
               scheduleEmit();
@@ -198,7 +237,10 @@ enum MarkdownHTMLRenderer {
             });
             content.addEventListener('keyup', scheduleEmit);
             content.addEventListener('cut', scheduleEmit);
-            window.addEventListener('scroll', scheduleActiveHeadingReport, { passive: true });
+            window.addEventListener('scroll', function () {
+              scheduleActiveHeadingReport();
+              scheduleScrollAnchorReport();
+            }, { passive: true });
 
             content.addEventListener('paste', function (event) {
               const items = event.clipboardData ? event.clipboardData.items : null;
@@ -247,6 +289,41 @@ enum MarkdownHTMLRenderer {
               requestAnimationFrame(reportActiveHeading);
             };
 
+            window.setSourceOffsets = function (offsets) {
+              const children = Array.from(content.children);
+              children.forEach(function (element, index) {
+                const sourceOffset = Number(offsets[index]);
+                if (Number.isFinite(sourceOffset)) {
+                  element.dataset.sourceOffset = String(sourceOffset);
+                } else {
+                  element.removeAttribute('data-source-offset');
+                }
+              });
+            };
+
+            window.scrollToSourceOffset = function (requestedOffset) {
+              const sourceOffset = Number(requestedOffset);
+              if (!Number.isFinite(sourceOffset)) return;
+              const anchors = sourceAnchors();
+              if (!anchors.length) return;
+              let target = anchors[0];
+              anchors.forEach(function (anchor) {
+                if (Number(anchor.dataset.sourceOffset) <= sourceOffset) {
+                  target = anchor;
+                }
+              });
+              const targetOffset = Number(target.dataset.sourceOffset);
+              const targetTop = target.getBoundingClientRect().top + window.scrollY - 20;
+              suppressScrollAnchorReport = true;
+              lastReportedSourceOffset = targetOffset;
+              window.scrollTo({ top: Math.max(0, targetTop), behavior: 'auto' });
+              requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                  suppressScrollAnchorReport = false;
+                });
+              });
+            };
+
             window.setAccentColor = function (color) {
               document.documentElement.style.setProperty('--link', color);
               document.documentElement.style.setProperty(
@@ -265,10 +342,18 @@ enum MarkdownHTMLRenderer {
               ensureHeadingIDs();
               const heading = document.getElementById(id);
               if (!heading) return;
+              suppressScrollAnchorReport = true;
+              const sourceOffset = Number(heading.dataset.sourceOffset);
+              if (Number.isFinite(sourceOffset)) {
+                lastReportedSourceOffset = sourceOffset;
+              }
               heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
               activeHeadingID = id;
               post({ type: 'activeHeadingChanged', id: id });
-              setTimeout(reportActiveHeading, 350);
+              setTimeout(function () {
+                suppressScrollAnchorReport = false;
+                reportActiveHeading();
+              }, 350);
             };
 
             window.insertImageAtCaret = function (src, alt) {
@@ -295,23 +380,46 @@ enum MarkdownHTMLRenderer {
         """
     }
 
-    private static func renderBody(_ markdown: String) -> String {
+    private static func renderBody(_ markdown: String) -> RenderedBody {
         let normalized = markdown.replacingOccurrences(of: "\r\n", with: "\n")
         let lines = normalized.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        let source = markdown as NSString
+        var lineOffsets = [0]
+        if source.length > 0 {
+            for location in 0..<source.length where source.character(at: location) == 10 {
+                lineOffsets.append(location + 1)
+            }
+        }
         var html: [String] = []
+        var sourceOffsets: [Int] = []
         var index = 0
         var inCodeBlock = false
+        var codeBlockOffset = 0
         var codeLanguage = ""
         var codeLines: [String] = []
         var paragraph: [String] = []
+        var paragraphOffset = 0
         var listKind: ListKind?
         var listItems: [String] = []
+        var listOffset = 0
         var headingIndex = 0
+
+        func appendBlock(_ value: String, sourceOffset: Int) {
+            html.append(value)
+            sourceOffsets.append(sourceOffset)
+        }
+
+        func sourceAttribute(_ sourceOffset: Int) -> String {
+            " data-source-offset=\"\(sourceOffset)\""
+        }
 
         func flushParagraph() {
             guard !paragraph.isEmpty else { return }
             let text = paragraph.joined(separator: " ")
-            html.append("<p>\(renderInline(text))</p>")
+            appendBlock(
+                "<p\(sourceAttribute(paragraphOffset))>\(renderInline(text))</p>",
+                sourceOffset: paragraphOffset
+            )
             paragraph.removeAll(keepingCapacity: true)
         }
 
@@ -319,7 +427,10 @@ enum MarkdownHTMLRenderer {
             guard let kind = listKind, !listItems.isEmpty else { return }
             let tag = kind == .unordered ? "ul" : "ol"
             let items = listItems.map { "<li>\(renderInline($0))</li>" }.joined()
-            html.append("<\(tag)>\(items)</\(tag)>")
+            appendBlock(
+                "<\(tag)\(sourceAttribute(listOffset))>\(items)</\(tag)>",
+                sourceOffset: listOffset
+            )
             listKind = nil
             listItems.removeAll(keepingCapacity: true)
         }
@@ -333,12 +444,16 @@ enum MarkdownHTMLRenderer {
                 if inCodeBlock {
                     let code = escapeHTML(codeLines.joined(separator: "\n"))
                     let languageClass = codeLanguage.isEmpty ? "" : " class=\"language-\(escapeHTML(codeLanguage))\""
-                    html.append("<pre><code\(languageClass)>\(code)</code></pre>")
+                    appendBlock(
+                        "<pre\(sourceAttribute(codeBlockOffset))><code\(languageClass)>\(code)</code></pre>",
+                        sourceOffset: codeBlockOffset
+                    )
                     codeLines.removeAll(keepingCapacity: true)
                     codeLanguage = ""
                     inCodeBlock = false
                 } else {
                     inCodeBlock = true
+                    codeBlockOffset = lineOffsets[index]
                     codeLanguage = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
                 }
                 index += 1
@@ -363,7 +478,7 @@ enum MarkdownHTMLRenderer {
             if trimmed == "---" {
                 flushParagraph()
                 flushList()
-                html.append("<hr />")
+                appendBlock("<hr\(sourceAttribute(lineOffsets[index])) />", sourceOffset: lineOffsets[index])
                 index += 1
                 continue
             }
@@ -372,7 +487,10 @@ enum MarkdownHTMLRenderer {
                 flushParagraph()
                 flushList()
                 let id = "yk-heading-\(headingIndex)"
-                html.append("<h\(heading.level) id=\"\(id)\">\(renderInline(heading.text))</h\(heading.level)>")
+                appendBlock(
+                    "<h\(heading.level) id=\"\(id)\"\(sourceAttribute(lineOffsets[index]))>\(renderInline(heading.text))</h\(heading.level)>",
+                    sourceOffset: lineOffsets[index]
+                )
                 headingIndex += 1
                 index += 1
                 continue
@@ -381,6 +499,7 @@ enum MarkdownHTMLRenderer {
             if trimmed.hasPrefix("> ") || trimmed == ">" {
                 flushParagraph()
                 flushList()
+                let quoteOffset = lineOffsets[index]
                 var quoteLines: [String] = []
                 while index < lines.count {
                     let current = lines[index].trimmingCharacters(in: .whitespaces)
@@ -396,7 +515,10 @@ enum MarkdownHTMLRenderer {
                 let quoteBody = quoteLines
                     .map { $0.isEmpty ? "<br />" : renderInline($0) }
                     .joined(separator: "<br />")
-                html.append("<blockquote><p>\(quoteBody)</p></blockquote>")
+                appendBlock(
+                    "<blockquote\(sourceAttribute(quoteOffset))><p>\(quoteBody)</p></blockquote>",
+                    sourceOffset: quoteOffset
+                )
                 continue
             }
 
@@ -405,6 +527,7 @@ enum MarkdownHTMLRenderer {
                 if listKind != .unordered {
                     flushList()
                     listKind = .unordered
+                    listOffset = lineOffsets[index]
                 }
                 listItems.append(unordered)
                 index += 1
@@ -416,6 +539,7 @@ enum MarkdownHTMLRenderer {
                 if listKind != .ordered {
                     flushList()
                     listKind = .ordered
+                    listOffset = lineOffsets[index]
                 }
                 listItems.append(ordered)
                 index += 1
@@ -425,6 +549,7 @@ enum MarkdownHTMLRenderer {
             if looksLikeTableHeader(trimmed), index + 1 < lines.count, isTableSeparator(lines[index + 1]) {
                 flushParagraph()
                 flushList()
+                let tableOffset = lineOffsets[index]
                 let headerCells = splitTableRow(trimmed)
                 index += 2
                 var rows: [[String]] = []
@@ -434,7 +559,7 @@ enum MarkdownHTMLRenderer {
                     rows.append(splitTableRow(rowLine))
                     index += 1
                 }
-                var table = "<table><thead><tr>"
+                var table = "<table\(sourceAttribute(tableOffset))><thead><tr>"
                 table += headerCells.map { "<th>\(renderInline($0))</th>" }.joined()
                 table += "</tr></thead><tbody>"
                 for row in rows {
@@ -443,23 +568,34 @@ enum MarkdownHTMLRenderer {
                     table += "</tr>"
                 }
                 table += "</tbody></table>"
-                html.append(table)
+                appendBlock(table, sourceOffset: tableOffset)
                 continue
             }
 
             flushList()
+            if paragraph.isEmpty {
+                paragraphOffset = lineOffsets[index]
+            }
             paragraph.append(trimmed)
             index += 1
         }
 
         if inCodeBlock {
             let code = escapeHTML(codeLines.joined(separator: "\n"))
-            html.append("<pre><code>\(code)</code></pre>")
+            appendBlock(
+                "<pre\(sourceAttribute(codeBlockOffset))><code>\(code)</code></pre>",
+                sourceOffset: codeBlockOffset
+            )
         }
         flushParagraph()
         flushList()
 
-        return html.joined(separator: "\n")
+        return RenderedBody(html: html.joined(separator: "\n"), sourceOffsets: sourceOffsets)
+    }
+
+    private struct RenderedBody {
+        let html: String
+        let sourceOffsets: [Int]
     }
 
     private enum ListKind {

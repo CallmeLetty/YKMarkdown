@@ -18,6 +18,9 @@ struct EditorView: View {
     @State private var layout: EditorLayout = .split
     @State private var activeHeadingID: String?
     @State private var headingNavigationRequest: HeadingNavigationRequest?
+    @State private var editorScrollSyncRequest: MarkdownScrollSyncRequest?
+    @State private var previewScrollSyncRequest: MarkdownScrollSyncRequest?
+    @State private var scrollAnchorOffsets: [Int] = []
     @State private var insertImageRequest: MarkdownPreviewView.InsertImageRequest?
     @State private var showSaveFirstAlert = false
     @State private var saveFirstMessage = "插入图片前，请先保存 Markdown 文件。"
@@ -161,6 +164,7 @@ struct EditorView: View {
         ))
         .onAppear {
             syncKnownDiskTextIfNeeded()
+            updateScrollAnchorOffsets()
             if activeHeadingID == nil {
                 activeHeadingID = headings.first?.id
             }
@@ -169,6 +173,7 @@ struct EditorView: View {
             lastKnownDiskText = fileURL == nil ? nil : document.text
         }
         .onChange(of: document.text) { _, _ in
+            updateScrollAnchorOffsets()
             guard let activeHeadingID,
                   headings.contains(where: { $0.id == activeHeadingID })
             else {
@@ -227,8 +232,11 @@ struct EditorView: View {
             text: editorTextBinding,
             fontSize: editorFontSize,
             headings: headings,
+            scrollAnchorOffsets: scrollAnchorOffsets,
             navigationRequest: headingNavigationRequest,
-            onActiveHeadingChange: setActiveHeading
+            scrollSyncRequest: editorScrollSyncRequest,
+            onActiveHeadingChange: setActiveHeading,
+            onScrollAnchorChange: syncPreviewScroll
         )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(nsColor: .textBackgroundColor))
@@ -250,9 +258,11 @@ struct EditorView: View {
             },
             insertImageRequest: insertImageRequest,
             headingNavigationRequest: headingNavigationRequest,
+            scrollSyncRequest: previewScrollSyncRequest,
             themeColorCSS: themeColorCSS,
             fontSize: editorFontSize,
-            onActiveHeadingChange: setActiveHeading
+            onActiveHeadingChange: setActiveHeading,
+            onScrollAnchorChange: syncEditorScroll
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor))
@@ -274,6 +284,24 @@ struct EditorView: View {
     private func setActiveHeading(_ id: String?) {
         guard activeHeadingID != id else { return }
         activeHeadingID = id
+    }
+
+    private func syncPreviewScroll(to sourceOffset: Int) {
+        previewScrollSyncRequest = MarkdownScrollSyncRequest(
+            token: UUID(),
+            sourceOffset: sourceOffset
+        )
+    }
+
+    private func syncEditorScroll(to sourceOffset: Int) {
+        editorScrollSyncRequest = MarkdownScrollSyncRequest(
+            token: UUID(),
+            sourceOffset: sourceOffset
+        )
+    }
+
+    private func updateScrollAnchorOffsets() {
+        scrollAnchorOffsets = MarkdownHTMLRenderer.sourceOffsets(from: document.text)
     }
 
     private func reloadDocumentFromDisk() {

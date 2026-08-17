@@ -403,12 +403,20 @@ struct MarkdownOutlineSidebar: View {
     }
 }
 
+struct MarkdownScrollSyncRequest: Equatable {
+    let token: UUID
+    let sourceOffset: Int
+}
+
 struct MarkdownSourceEditor: NSViewRepresentable {
     @Binding var text: String
     let fontSize: Double
     let headings: [MarkdownHeading]
+    let scrollAnchorOffsets: [Int]
     let navigationRequest: HeadingNavigationRequest?
+    let scrollSyncRequest: MarkdownScrollSyncRequest?
     let onActiveHeadingChange: (String?) -> Void
+    let onScrollAnchorChange: (Int) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -474,8 +482,14 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         if let request = navigationRequest,
            context.coordinator.lastNavigationToken != request.token {
             context.coordinator.lastNavigationToken = request.token
-            textView.scrollRangeToVisible(request.heading.sourceRange)
+            context.coordinator.scroll(toSourceOffset: request.heading.sourceRange.location)
             onActiveHeadingChange(request.heading.id)
+        }
+
+        if let request = scrollSyncRequest,
+           context.coordinator.lastScrollSyncToken != request.token {
+            context.coordinator.lastScrollSyncToken = request.token
+            context.coordinator.scroll(toSourceOffset: request.sourceOffset)
         }
     }
 
@@ -485,6 +499,9 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         weak var textView: NSTextView?
         weak var scrollView: NSScrollView?
         var lastNavigationToken: UUID?
+        var lastScrollSyncToken: UUID?
+        private var isApplyingSyncedScroll = false
+        private var lastReportedScrollAnchor: Int?
 
         init(parent: MarkdownSourceEditor) {
             self.parent = parent
@@ -502,6 +519,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
 
         @objc private func scrollBoundsDidChange() {
             reportActiveHeading()
+            reportScrollAnchor()
         }
 
         func textDidChange(_ notification: Notification) {
@@ -509,22 +527,71 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             parent.text = textView.string
         }
 
-        private func reportActiveHeading() {
+        func scroll(toSourceOffset sourceOffset: Int) {
             guard let textView,
                   let scrollView,
                   let layoutManager = textView.layoutManager,
                   let textContainer = textView.textContainer
             else { return }
 
+            let textLength = (textView.string as NSString).length
+            guard textLength > 0 else {
+                scrollView.contentView.scroll(to: .zero)
+                return
+            }
+
+            let location = min(max(sourceOffset, 0), textLength - 1)
+            let characterRange = NSRange(location: location, length: 1)
+            layoutManager.ensureLayout(forCharacterRange: characterRange)
+            let glyphRange = layoutManager.glyphRange(
+                forCharacterRange: characterRange,
+                actualCharacterRange: nil
+            )
+            let glyphRect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+
+            isApplyingSyncedScroll = true
+            lastReportedScrollAnchor = sourceOffset
+            scrollView.contentView.scroll(
+                to: NSPoint(x: scrollView.contentView.bounds.minX, y: max(0, glyphRect.minY))
+            )
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+            DispatchQueue.main.async { [weak self] in
+                self?.isApplyingSyncedScroll = false
+            }
+        }
+
+        private func reportActiveHeading() {
+            guard let characterIndex = visibleCharacterIndex() else { return }
+            let active = parent.headings.last { $0.sourceRange.location <= characterIndex }
+                ?? parent.headings.first
+            parent.onActiveHeadingChange(active?.id)
+        }
+
+        private func reportScrollAnchor() {
+            guard !isApplyingSyncedScroll,
+                  let characterIndex = visibleCharacterIndex(),
+                  let sourceOffset = parent.scrollAnchorOffsets.last(where: { $0 <= characterIndex })
+                    ?? parent.scrollAnchorOffsets.first,
+                  sourceOffset != lastReportedScrollAnchor
+            else { return }
+
+            lastReportedScrollAnchor = sourceOffset
+            parent.onScrollAnchorChange(sourceOffset)
+        }
+
+        private func visibleCharacterIndex() -> Int? {
+            guard let textView,
+                  let scrollView,
+                  let layoutManager = textView.layoutManager,
+                  let textContainer = textView.textContainer
+            else { return nil }
+
             let visibleTop = scrollView.contentView.bounds.minY + textView.textContainerInset.height
             let glyphIndex = layoutManager.glyphIndex(
                 for: NSPoint(x: textView.textContainerInset.width, y: visibleTop),
                 in: textContainer
             )
-            let characterIndex = layoutManager.characterIndexForGlyph(at: glyphIndex)
-            let active = parent.headings.last { $0.sourceRange.location <= characterIndex }
-                ?? parent.headings.first
-            parent.onActiveHeadingChange(active?.id)
+            return layoutManager.characterIndexForGlyph(at: glyphIndex)
         }
     }
 }

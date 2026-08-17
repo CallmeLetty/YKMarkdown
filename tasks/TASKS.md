@@ -243,3 +243,14 @@
     Claimed at: 2026-08-14T03:07:05Z
     Done by: CODEX
     Done at: 2026-08-14T03:09:38Z
+
+23. semantic-bidirectional-scroll-sync
+   Id: 23-semantic-bidirectional-scroll-sync
+   Scope: Synchronize source editor and preview scrolling bidirectionally using Markdown source anchors without percentage mapping
+   Files: Sources/Views/EditorView.swift,Sources/Views/MarkdownPreviewView.swift,Sources/Features/Editor/MarkdownOutline.swift,Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests/AppTests.swift,docs/plans/2026-08-17-semantic-scroll-sync-design.md
+   Note: Implemented bidirectional semantic source-anchor scroll sync without percentage mapping; strict macOS build and two-way UI verification succeeded; JavaScript syntax check passed; tests and SwiftLint not run per local preference
+   Detail: tasks/details/23-semantic-bidirectional-scroll-sync.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-17T07:50:11Z
+   Done by: CODEX
+   Done at: 2026-08-17T08:34:56Z

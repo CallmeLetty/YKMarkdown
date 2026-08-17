@@ -4,8 +4,23 @@ import XCTest
 final class YKMarkdownTests: XCTestCase {
     func testRendererConvertsHeadingAndEmphasis() {
         let html = MarkdownHTMLRenderer.bodyHTML(from: "# Title\n\nHello **world**")
-        XCTAssertTrue(html.contains("<h1 id=\"yk-heading-0\">Title</h1>"))
+        XCTAssertTrue(html.contains("<h1 id=\"yk-heading-0\" data-source-offset=\"0\">Title</h1>"))
         XCTAssertTrue(html.contains("<strong>world</strong>"))
+    }
+
+    func testRendererAddsSemanticSourceOffsetsWithoutScrollPercentages() {
+        let markdown = "# Title\n\nParagraph\n\n```swift\nx\n```"
+        let html = MarkdownHTMLRenderer.bodyHTML(from: markdown)
+
+        XCTAssertEqual(MarkdownHTMLRenderer.sourceOffsets(from: markdown), [0, 9, 20])
+        XCTAssertTrue(html.contains("<p data-source-offset=\"9\">Paragraph</p>"))
+        XCTAssertTrue(html.contains("<pre data-source-offset=\"20\">"))
+    }
+
+    func testRendererSourceOffsetsMatchUTF16TextStorageWithCRLF() {
+        let markdown = "# A\r\n\r\n😀"
+
+        XCTAssertEqual(MarkdownHTMLRenderer.sourceOffsets(from: markdown), [0, 7])
     }
 
     func testRendererConvertsCodeBlock() {
@@ -15,7 +30,7 @@ final class YKMarkdownTests: XCTestCase {
         ```
         """
         let html = MarkdownHTMLRenderer.bodyHTML(from: markdown)
-        XCTAssertTrue(html.contains("<pre><code class=\"language-swift\">"))
+        XCTAssertTrue(html.contains("<pre data-source-offset=\"0\"><code class=\"language-swift\">"))
         XCTAssertTrue(html.contains("print(&quot;hi&quot;)"))
     }
 
@@ -29,6 +44,9 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(html.contains("markdownChanged"))
         XCTAssertTrue(html.contains("--font-size: 18.0px"))
         XCTAssertTrue(html.contains("window.setFontSize"))
+        XCTAssertTrue(html.contains("window.setSourceOffsets"))
+        XCTAssertTrue(html.contains("window.scrollToSourceOffset"))
+        XCTAssertFalse(html.contains("scrollPercentage"))
     }
 
     func testWelcomeDocumentIsNonEmptyMarkdown() {

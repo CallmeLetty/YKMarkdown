@@ -11,9 +11,11 @@ struct MarkdownPreviewView: NSViewRepresentable {
     var onDropImages: ([URL]) -> Void
     var insertImageRequest: InsertImageRequest?
     var headingNavigationRequest: HeadingNavigationRequest?
+    var scrollSyncRequest: MarkdownScrollSyncRequest?
     var themeColorCSS: String
     var fontSize: Double
     var onActiveHeadingChange: (String?) -> Void
+    var onScrollAnchorChange: (Int) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -66,6 +68,12 @@ struct MarkdownPreviewView: NSViewRepresentable {
             context.coordinator.lastNavigationToken = request.token
             context.coordinator.navigate(to: request.heading.id)
         }
+
+        if let request = scrollSyncRequest,
+           context.coordinator.lastScrollSyncToken != request.token {
+            context.coordinator.lastScrollSyncToken = request.token
+            context.coordinator.scroll(toSourceOffset: request.sourceOffset)
+        }
     }
 
     struct InsertImageRequest: Equatable {
@@ -82,10 +90,12 @@ struct MarkdownPreviewView: NSViewRepresentable {
         var lastAppliedMarkdown = ""
         var lastInsertToken: UUID?
         var lastNavigationToken: UUID?
+        var lastScrollSyncToken: UUID?
         private var isPageReady = false
         private var isUpdatingFromPreview = false
         private var pendingBodyHTML: String?
         private var pendingHeadingID: String?
+        private var pendingScrollSourceOffset: Int?
         private var pendingThemeColor: String?
         private var pendingFontSize: Double?
         private var lastAppliedThemeColor = ""
@@ -163,6 +173,15 @@ struct MarkdownPreviewView: NSViewRepresentable {
             webView.evaluateJavaScript(script, completionHandler: nil)
         }
 
+        func scroll(toSourceOffset sourceOffset: Int) {
+            guard isPageReady, let webView else {
+                pendingScrollSourceOffset = sourceOffset
+                return
+            }
+            let script = "window.scrollToSourceOffset(\(sourceOffset));"
+            webView.evaluateJavaScript(script, completionHandler: nil)
+        }
+
         func userContentController(
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
@@ -180,6 +199,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 isUpdatingFromPreview = true
                 lastAppliedMarkdown = normalized
                 parent.onMarkdownChange(normalized)
+                updateSourceOffsets(for: normalized)
                 isUpdatingFromPreview = false
 
             case "pasteImages":
@@ -197,6 +217,11 @@ struct MarkdownPreviewView: NSViewRepresentable {
             case "activeHeadingChanged":
                 parent.onActiveHeadingChange(body["id"] as? String)
 
+            case "scrollAnchorChanged":
+                if let sourceOffset = body["sourceOffset"] as? NSNumber {
+                    parent.onScrollAnchorChange(sourceOffset.intValue)
+                }
+
             default:
                 break
             }
@@ -211,6 +236,10 @@ struct MarkdownPreviewView: NSViewRepresentable {
             if let pendingHeadingID {
                 navigate(to: pendingHeadingID)
                 self.pendingHeadingID = nil
+            }
+            if let pendingScrollSourceOffset {
+                scroll(toSourceOffset: pendingScrollSourceOffset)
+                self.pendingScrollSourceOffset = nil
             }
             if let pendingThemeColor {
                 let script = "window.setAccentColor(\(Self.jsString(pendingThemeColor)));"
@@ -241,6 +270,15 @@ struct MarkdownPreviewView: NSViewRepresentable {
         private func setBodyHTML(_ html: String) {
             guard let webView else { return }
             let script = "window.setBodyHTML(\(Self.jsString(html)));"
+            webView.evaluateJavaScript(script, completionHandler: nil)
+        }
+
+        private func updateSourceOffsets(for markdown: String) {
+            guard isPageReady, let webView else { return }
+            let offsets = MarkdownHTMLRenderer.sourceOffsets(from: markdown)
+                .map(String.init)
+                .joined(separator: ",")
+            let script = "window.setSourceOffsets([\(offsets)]);"
             webView.evaluateJavaScript(script, completionHandler: nil)
         }
 
