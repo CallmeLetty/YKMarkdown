@@ -254,3 +254,25 @@
    Claimed at: 2026-08-17T07:50:11Z
    Done by: CODEX
    Done at: 2026-08-17T08:34:56Z
+
+24. preview-edit-preserve-markdown
+   Id: 24-preview-edit-preserve-markdown
+   Scope: Make editable preview patch only changed Markdown blocks and document full HTML-to-Markdown rewrite pitfalls
+   Files: Sources/Views/MarkdownPreviewView.swift,Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests/AppTests.swift,docs/问题记录/预览编辑 Markdown 回写问题记录.md
+   Note: Finished block-level editable preview Markdown patching, table/heading Turndown safeguards, regression tests, and pitfall doc; git diff --check and preview JS syntax check passed; SwiftLint/xcodebuild not run per project instructions
+   Detail: tasks/details/24-preview-edit-preserve-markdown.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-18T15:25:19Z
+   Done by: CODEX
+   Done at: 2026-08-18T15:30:40Z
+
+25. move-preview-edit-doc-to-issue-notes
+   Id: 25-move-preview-edit-doc-to-issue-notes
+   Scope: Move preview edit pitfall doc into docs issue-notes folder and add old/new implementation snippets
+   Files: docs/问题记录/预览编辑 Markdown 回写问题记录.md,tasks/TASKS.md,tasks/details/25-move-preview-edit-doc-to-issue-notes.md
+   Note: Moved preview edit pitfall doc into docs/问题记录 and added old/new implementation snippets; git diff --check passed; no SwiftLint/xcodebuild run
+   Detail: tasks/details/25-move-preview-edit-doc-to-issue-notes.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-18T15:44:08Z
+   Done by: CODEX
+   Done at: 2026-08-18T15:45:17Z

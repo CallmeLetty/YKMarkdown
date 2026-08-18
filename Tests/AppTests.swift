@@ -49,6 +49,42 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertFalse(html.contains("scrollPercentage"))
     }
 
+    func testEditableDocumentUsesBlockLevelPreviewEdits() {
+        let html = MarkdownHTMLRenderer.editableDocument(
+            bodyHTML: "<p data-source-offset=\"0\">Hi</p>",
+            turndownScript: "function TurndownService(){}"
+        )
+
+        XCTAssertTrue(html.contains("markdownBlockChanged"))
+        XCTAssertTrue(html.contains("turndown.addRule('table'"))
+        XCTAssertTrue(html.contains("turndown.addRule('heading'"))
+    }
+
+    func testPreviewBlockPatchPreservesUneditedMarkdown() {
+        let original = """
+        # 图片编辑功能技术说明
+
+        本文档说明 YKImageEditor 当前各项图片编辑功能的实现方式、数据流、性能策略和扩展边界。内容对应当前工程代码，不是产品规划文档。
+
+        ## 1. 技术架构
+
+        | 层级 | 主要类型 | 职责 |
+        | --- | --- | --- |
+        | 对外入口 | `ImageEditorView` | SwiftUI/UIKit 接入 |
+        """
+        let paragraphOffset = (original as NSString).range(of: "本文档说明").location
+        let patched = MarkdownPreviewEditPatch.replacingBlock(
+            in: original,
+            sourceOffset: paragraphOffset,
+            with: "本文档说明YKImageEditor 当前各项图片编辑功能的实现方式、数据流、性能策略和扩展边界。内容对应当前工程代码，不是产品规划文档。"
+        )
+
+        XCTAssertTrue(patched.contains("本文档说明YKImageEditor 当前各项图片编辑功能"))
+        XCTAssertTrue(patched.contains("## 1. 技术架构"))
+        XCTAssertTrue(patched.contains("| 层级 | 主要类型 | 职责 |"))
+        XCTAssertFalse(patched.contains("## 1\\. 技术架构"))
+    }
+
     func testWelcomeDocumentIsNonEmptyMarkdown() {
         let document = MarkdownDocument()
         XCTAssertFalse(document.text.isEmpty)

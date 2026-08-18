@@ -141,6 +141,38 @@ enum MarkdownHTMLRenderer {
               filter: ['del', 's', 'strike'],
               replacement: function (content) { return '~~' + content + '~~'; }
             });
+            turndown.addRule('heading', {
+              filter: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
+              replacement: function (content, node) {
+                const level = Number(node.nodeName.charAt(1));
+                const text = content.replace(/^(\\d+)\\\\\\. /, '$1. ');
+                return '\\n\\n' + '#'.repeat(level) + ' ' + text + '\\n\\n';
+              }
+            });
+            turndown.addRule('table', {
+              filter: 'table',
+              replacement: function (content, node) {
+                const rows = Array.from(node.querySelectorAll('tr')).map(function (row) {
+                  return Array.from(row.children).map(function (cell) {
+                    return turndown.turndown(cell.innerHTML || '')
+                      .replace(/\\n+/g, ' ')
+                      .replace(/\\|/g, '\\\\|')
+                      .trim();
+                  });
+                }).filter(function (row) {
+                  return row.length > 0;
+                });
+                if (!rows.length) return '';
+
+                const header = rows[0];
+                const separator = header.map(function () { return '---'; });
+                const bodyRows = rows.slice(1);
+                const markdownRows = [header, separator].concat(bodyRows).map(function (row) {
+                  return '| ' + row.join(' | ') + ' |';
+                });
+                return '\\n\\n' + markdownRows.join('\\n') + '\\n\\n';
+              }
+            });
 
             let emitTimer = null;
             let suppressEmit = false;
@@ -152,6 +184,10 @@ enum MarkdownHTMLRenderer {
             let scrollAnchorFrame = null;
             let lastReportedSourceOffset = null;
             let suppressScrollAnchorReport = false;
+            let pendingPreviewEdit = {
+              block: null,
+              requiresFullEmit: false
+            };
 
             function post(payload) {
               if (window.webkit && webkit.messageHandlers && webkit.messageHandlers.bridge) {
@@ -163,12 +199,70 @@ enum MarkdownHTMLRenderer {
               return turndown.turndown(content.innerHTML || '');
             }
 
-            function emitMarkdown() {
-              if (suppressEmit) return;
-              post({ type: 'markdownChanged', markdown: currentMarkdown() });
+            function currentBlock() {
+              const selection = window.getSelection();
+              let node = selection && selection.anchorNode ? selection.anchorNode : null;
+              if (!node) return null;
+              if (node.nodeType === Node.TEXT_NODE) {
+                node = node.parentElement;
+              }
+              if (!node || !node.closest) return null;
+              return node.closest(sourceAnchorSelector);
             }
 
-            function scheduleEmit() {
+            function markdownForBlock(block) {
+              return turndown.turndown(block.outerHTML || '').trim();
+            }
+
+            function recordPreviewEdit() {
+              const block = currentBlock();
+              if (!block) {
+                pendingPreviewEdit.requiresFullEmit = true;
+                pendingPreviewEdit.block = null;
+                return;
+              }
+
+              const sourceOffset = Number(block.dataset.sourceOffset);
+              if (!Number.isFinite(sourceOffset)) {
+                pendingPreviewEdit.requiresFullEmit = true;
+                pendingPreviewEdit.block = null;
+                return;
+              }
+
+              if (
+                pendingPreviewEdit.block &&
+                pendingPreviewEdit.block.sourceOffset !== sourceOffset
+              ) {
+                pendingPreviewEdit.requiresFullEmit = true;
+                pendingPreviewEdit.block = null;
+                return;
+              }
+
+              pendingPreviewEdit.block = {
+                sourceOffset: sourceOffset,
+                markdown: markdownForBlock(block)
+              };
+            }
+
+            function emitMarkdown() {
+              if (suppressEmit) return;
+              if (pendingPreviewEdit.requiresFullEmit || !pendingPreviewEdit.block) {
+                post({ type: 'markdownChanged', markdown: currentMarkdown() });
+              } else {
+                post({
+                  type: 'markdownBlockChanged',
+                  sourceOffset: pendingPreviewEdit.block.sourceOffset,
+                  markdown: pendingPreviewEdit.block.markdown
+                });
+              }
+              pendingPreviewEdit.block = null;
+              pendingPreviewEdit.requiresFullEmit = false;
+            }
+
+            function scheduleEmit(shouldRecordBlock) {
+              if (shouldRecordBlock) {
+                recordPreviewEdit();
+              }
               clearTimeout(emitTimer);
               emitTimer = setTimeout(emitMarkdown, 100);
             }
@@ -232,11 +326,13 @@ enum MarkdownHTMLRenderer {
 
             content.addEventListener('input', function () {
               ensureHeadingIDs();
-              scheduleEmit();
+              scheduleEmit(true);
               scheduleActiveHeadingReport();
             });
-            content.addEventListener('keyup', scheduleEmit);
-            content.addEventListener('cut', scheduleEmit);
+            content.addEventListener('cut', function () {
+              pendingPreviewEdit.requiresFullEmit = true;
+              scheduleEmit(false);
+            });
             window.addEventListener('scroll', function () {
               scheduleActiveHeadingReport();
               scheduleScrollAnchorReport();
@@ -258,7 +354,10 @@ enum MarkdownHTMLRenderer {
                 post({ type: 'pasteImages' });
                 return;
               }
-              setTimeout(scheduleEmit, 0);
+              pendingPreviewEdit.requiresFullEmit = true;
+              setTimeout(function () {
+                scheduleEmit(false);
+              }, 0);
             });
 
             content.addEventListener('click', function (event) {
@@ -364,7 +463,8 @@ enum MarkdownHTMLRenderer {
                 false,
                 '<p><img src="' + safeSrc + '" alt="' + safeAlt + '" /></p>'
               );
-              scheduleEmit();
+              pendingPreviewEdit.requiresFullEmit = true;
+              scheduleEmit(false);
             };
 
             window.focusEditor = function () {

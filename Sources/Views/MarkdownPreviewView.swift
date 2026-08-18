@@ -202,6 +202,23 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 updateSourceOffsets(for: normalized)
                 isUpdatingFromPreview = false
 
+            case "markdownBlockChanged":
+                guard let sourceOffset = body["sourceOffset"] as? NSNumber,
+                      let markdown = body["markdown"] as? String
+                else { return }
+                let patched = MarkdownPreviewEditPatch.replacingBlock(
+                    in: lastAppliedMarkdown,
+                    sourceOffset: sourceOffset.intValue,
+                    with: markdown
+                )
+                let normalized = Self.normalizeMarkdown(patched)
+                guard normalized != lastAppliedMarkdown else { return }
+                isUpdatingFromPreview = true
+                lastAppliedMarkdown = normalized
+                parent.onMarkdownChange(normalized)
+                updateSourceOffsets(for: normalized)
+                isUpdatingFromPreview = false
+
             case "pasteImages":
                 parent.onPasteImages()
 
@@ -303,6 +320,58 @@ struct MarkdownPreviewView: NSViewRepresentable {
         }
 
         private static let turndownScript = TurndownScript.source
+    }
+}
+
+enum MarkdownPreviewEditPatch {
+    /// 将预览中单个顶层块的 Markdown 回写到原文，避免未编辑内容被 HTML 到 Markdown 的全量转换改写。
+    static func replacingBlock(
+        in markdown: String,
+        sourceOffset: Int,
+        with blockMarkdown: String
+    ) -> String {
+        let source = markdown as NSString
+        let length = source.length
+        guard sourceOffset >= 0, sourceOffset < length else {
+            return markdown
+        }
+
+        let offsets = MarkdownHTMLRenderer.sourceOffsets(from: markdown)
+            .filter { $0 >= 0 && $0 < length }
+            .sorted()
+        guard offsets.contains(sourceOffset) else {
+            return markdown
+        }
+
+        let endOffset = offsets.first { $0 > sourceOffset } ?? length
+        let replacementRange = NSRange(location: sourceOffset, length: endOffset - sourceOffset)
+        let originalBlock = source.substring(with: replacementRange)
+        let separator = trailingNewlineSuffix(in: originalBlock)
+        let replacementCore = blockMarkdown
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .trimmingCharacters(in: .newlines)
+
+        let replacement: String
+        if replacementCore.isEmpty {
+            replacement = ""
+        } else {
+            replacement = replacementCore + (separator.isEmpty ? "\n" : separator)
+        }
+
+        return source.replacingCharacters(in: replacementRange, with: replacement)
+    }
+
+    /// 保留原块与下一个块之间的空行数量，避免块级替换顺手重排整篇文档间距。
+    private static func trailingNewlineSuffix(in text: String) -> String {
+        var suffix = ""
+        for character in text.reversed() {
+            if character == "\n" || character == "\r" {
+                suffix.insert(character, at: suffix.startIndex)
+            } else {
+                break
+            }
+        }
+        return suffix
     }
 }
 
