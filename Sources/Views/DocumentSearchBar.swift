@@ -17,29 +17,29 @@ struct DocumentSearchBar: View {
     var body: some View {
         VStack(spacing: 0) {
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     scopePicker
                     searchField
                     resultCounter
                     navigationButtons
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
 
-                VStack(spacing: 6) {
-                    HStack(spacing: 8) {
+                VStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         scopePicker
                         searchField
                     }
 
-                    HStack(spacing: 8) {
-                        resultCounter
+                    HStack(spacing: 6) {
                         Spacer(minLength: 0)
+                        resultCounter
                         navigationButtons
                     }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
             }
 
             if scope == .all, !query.isEmpty, !matches.isEmpty {
@@ -76,14 +76,14 @@ struct DocumentSearchBar: View {
         }
         .labelsHidden()
         .pickerStyle(.segmented)
-        .frame(width: 112)
+        .frame(width: 96)
     }
 
     private var searchField: some View {
         TextField("搜索源码", text: $query)
             .textFieldStyle(.roundedBorder)
             .focused($isSearchFieldFocused)
-            .frame(minWidth: 120, maxWidth: .infinity)
+            .frame(minWidth: 90, idealWidth: 90, maxWidth: .infinity)
             .layoutPriority(2)
             .onSubmit(onNext)
     }
@@ -93,29 +93,37 @@ struct DocumentSearchBar: View {
             .font(.caption)
             .foregroundStyle(.secondary)
             .monospacedDigit()
-            .frame(minWidth: 58, alignment: .trailing)
+            .lineLimit(1)
+            .frame(width: 38, alignment: .trailing)
     }
 
     private var navigationButtons: some View {
         HStack(spacing: 6) {
             Button(action: onPrevious) {
                 Image(systemName: "chevron.up")
+                    .frame(width: 20, height: 18)
             }
+            .buttonStyle(.borderless)
             .disabled(matches.isEmpty)
             .help("上一个")
 
             Button(action: onNext) {
                 Image(systemName: "chevron.down")
+                    .frame(width: 20, height: 18)
             }
+            .buttonStyle(.borderless)
             .disabled(matches.isEmpty)
             .help("下一个")
 
             Button(action: onClose) {
                 Image(systemName: "xmark")
+                    .frame(width: 20, height: 18)
             }
+            .buttonStyle(.borderless)
             .help("关闭搜索")
         }
         .controlSize(.small)
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private var resultText: String {

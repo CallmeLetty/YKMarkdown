@@ -585,8 +585,8 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             let ranges = MarkdownSearch.ranges(in: textView.string, query: query)
             guard !ranges.isEmpty else { return }
 
-            let highlightColor = NSColor.systemYellow.withAlphaComponent(0.35)
-            let selectedColor = NSColor.controlAccentColor.withAlphaComponent(0.35)
+            let highlightColor = NSColor.controlAccentColor.withAlphaComponent(0.35)
+            let selectedColor = NSColor.systemYellow.withAlphaComponent(0.35)
             for range in ranges {
                 let color = selectedRange == range ? selectedColor : highlightColor
                 layoutManager.addTemporaryAttribute(.backgroundColor, value: color, forCharacterRange: range)

@@ -309,3 +309,14 @@
    Claimed at: 2026-08-20T01:03:37Z
    Done by: CODEX
    Done at: 2026-08-20T01:05:25Z
+
+29. compact-search-bar-layout
+   Id: 29-compact-search-bar-layout
+   Scope: 修复分栏模式下搜索栏过早换行和操作组错位
+   Files: Sources/Views/DocumentSearchBar.swift,Sources/Features/Editor/MarkdownOutline.swift
+   Note: 搜索栏常规分栏宽度保持紧凑单行，极窄布局操作组靠右；普通命中与当前命中高亮颜色已互换；macOS Debug build succeeded，未运行测试或 SwiftLint
+   Detail: tasks/details/29-compact-search-bar-layout.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-20T03:21:39Z
+   Done by: CODEX
+   Done at: 2026-08-20T03:40:34Z
