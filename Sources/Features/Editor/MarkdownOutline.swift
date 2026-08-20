@@ -415,6 +415,9 @@ struct MarkdownSourceEditor: NSViewRepresentable {
     let scrollAnchorOffsets: [Int]
     let navigationRequest: HeadingNavigationRequest?
     let scrollSyncRequest: MarkdownScrollSyncRequest?
+    let searchQuery: String
+    let selectedSearchRange: NSRange?
+    let searchNavigationRequest: DocumentSearchNavigationRequest?
     let onActiveHeadingChange: (String?) -> Void
     let onScrollAnchorChange: (Int) -> Void
 
@@ -478,6 +481,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             let selectionLength = min(selection.length, textLength - selectionLocation)
             textView.setSelectedRange(NSRange(location: selectionLocation, length: selectionLength))
         }
+        context.coordinator.applySearchHighlights(query: searchQuery, selectedRange: selectedSearchRange)
 
         if let request = navigationRequest,
            context.coordinator.lastNavigationToken != request.token {
@@ -491,6 +495,12 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             context.coordinator.lastScrollSyncToken = request.token
             context.coordinator.scroll(toSourceOffset: request.sourceOffset)
         }
+
+        if let request = searchNavigationRequest,
+           context.coordinator.lastSearchNavigationToken != request.token {
+            context.coordinator.lastSearchNavigationToken = request.token
+            context.coordinator.navigateToSearchRange(request.range)
+        }
     }
 
     @MainActor
@@ -500,6 +510,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         weak var scrollView: NSScrollView?
         var lastNavigationToken: UUID?
         var lastScrollSyncToken: UUID?
+        var lastSearchNavigationToken: UUID?
         private var isApplyingSyncedScroll = false
         private var lastReportedScrollAnchor: Int?
 
@@ -558,6 +569,40 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             DispatchQueue.main.async { [weak self] in
                 self?.isApplyingSyncedScroll = false
             }
+        }
+
+        func applySearchHighlights(query: String, selectedRange: NSRange?) {
+            guard let textView,
+                  let layoutManager = textView.layoutManager
+            else { return }
+
+            let textLength = (textView.string as NSString).length
+            guard textLength > 0 else { return }
+
+            let fullRange = NSRange(location: 0, length: textLength)
+            layoutManager.removeTemporaryAttribute(.backgroundColor, forCharacterRange: fullRange)
+
+            let ranges = MarkdownSearch.ranges(in: textView.string, query: query)
+            guard !ranges.isEmpty else { return }
+
+            let highlightColor = NSColor.systemYellow.withAlphaComponent(0.35)
+            let selectedColor = NSColor.controlAccentColor.withAlphaComponent(0.35)
+            for range in ranges {
+                let color = selectedRange == range ? selectedColor : highlightColor
+                layoutManager.addTemporaryAttribute(.backgroundColor, value: color, forCharacterRange: range)
+            }
+        }
+
+        func navigateToSearchRange(_ range: NSRange) {
+            guard let textView else { return }
+            let textLength = (textView.string as NSString).length
+            guard textLength > 0, range.location != NSNotFound else { return }
+
+            let safeLocation = min(range.location, textLength - 1)
+            let safeLength = min(range.length, textLength - safeLocation)
+            let safeRange = NSRange(location: safeLocation, length: safeLength)
+            textView.setSelectedRange(safeRange)
+            textView.scrollRangeToVisible(safeRange)
         }
 
         private func reportActiveHeading() {

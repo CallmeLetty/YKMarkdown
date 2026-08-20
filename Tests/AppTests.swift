@@ -120,6 +120,23 @@ final class YKMarkdownTests: XCTestCase {
         )
     }
 
+    func testMarkdownSearchUsesTextViewCompatibleRanges() {
+        let markdown = "Alpha\n    second target line\n😀 TARGET"
+        let matches = MarkdownSearch.matches(
+            in: markdown,
+            query: "target",
+            documentID: UUID(),
+            documentTitle: "Search.md",
+            fileURL: nil
+        )
+
+        XCTAssertEqual(matches.count, 2)
+        XCTAssertEqual(matches.map(\.lineNumber), [2, 3])
+        XCTAssertEqual((markdown as NSString).substring(with: matches[0].range), "target")
+        XCTAssertEqual((markdown as NSString).substring(with: matches[1].range), "TARGET")
+        XCTAssertTrue(matches[0].snippet.contains("second target line"))
+    }
+
     func testFrontmatterRoundTrip() {
         let meta = BlogFrontmatter(
             title: "你好",

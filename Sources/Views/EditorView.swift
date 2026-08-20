@@ -33,6 +33,14 @@ struct EditorView: View {
     @State private var showReloadConfirmation = false
     @State private var pendingReloadText: String?
     @State private var lastKnownDiskText: String?
+    @ObservedObject private var searchRegistry = OpenDocumentSearchRegistry.shared
+    @StateObject private var searchWindowBox = SearchDocumentWindowBox()
+    @State private var documentSearchID = UUID()
+    @State private var isSearchVisible = false
+    @State private var searchScope: DocumentSearchScope = .current
+    @State private var searchQuery = ""
+    @State private var selectedSearchMatchID: MarkdownSearchMatch.ID?
+    @State private var searchNavigationRequest: DocumentSearchNavigationRequest?
 
     var body: some View {
         Group {
@@ -158,11 +166,21 @@ struct EditorView: View {
             )
         }
         .background(DocumentWindowConfigurator())
+        .background(DocumentSearchWindowReader(
+            onWindowChange: { window in
+                searchWindowBox.window = window
+            },
+            onWindowClose: {
+                searchRegistry.unregister(id: documentSearchID)
+            }
+        ))
         .focusedValue(\.editorCommandActions, EditorCommandActions(
             insertImagesFromPanel: insertImagesFromPanel,
-            beginUpload: beginUpload
+            beginUpload: beginUpload,
+            openSearch: openSearch
         ))
         .onAppear {
+            registerOpenSearchDocument()
             syncKnownDiskTextIfNeeded()
             updateScrollAnchorOffsets()
             if activeHeadingID == nil {
@@ -171,15 +189,24 @@ struct EditorView: View {
         }
         .onChange(of: fileURL) { _, _ in
             lastKnownDiskText = fileURL == nil ? nil : document.text
+            registerOpenSearchDocument()
         }
         .onChange(of: document.text) { _, _ in
+            registerOpenSearchDocument()
             updateScrollAnchorOffsets()
+            validateSearchSelection()
             guard let activeHeadingID,
                   headings.contains(where: { $0.id == activeHeadingID })
             else {
                 self.activeHeadingID = headings.first?.id
                 return
             }
+        }
+        .onChange(of: searchQuery) { _, _ in
+            selectFirstSearchMatchIfNeeded()
+        }
+        .onChange(of: searchScope) { _, _ in
+            selectFirstSearchMatchIfNeeded()
         }
     }
 
@@ -228,19 +255,38 @@ struct EditorView: View {
     }
 
     private var editorPane: some View {
-        MarkdownSourceEditor(
-            text: editorTextBinding,
-            fontSize: editorFontSize,
-            headings: headings,
-            scrollAnchorOffsets: scrollAnchorOffsets,
-            navigationRequest: headingNavigationRequest,
-            scrollSyncRequest: editorScrollSyncRequest,
-            onActiveHeadingChange: setActiveHeading,
-            onScrollAnchorChange: syncPreviewScroll
-        )
+        VStack(spacing: 0) {
+            if isSearchVisible {
+                DocumentSearchBar(
+                    scope: $searchScope,
+                    query: $searchQuery,
+                    matches: searchMatches,
+                    selectedMatchID: selectedSearchMatchID,
+                    selectedIndex: selectedSearchIndex,
+                    onPrevious: selectPreviousSearchMatch,
+                    onNext: selectNextSearchMatch,
+                    onClose: closeSearch,
+                    onSelect: selectSearchMatch
+                )
+            }
+
+            MarkdownSourceEditor(
+                text: editorTextBinding,
+                fontSize: editorFontSize,
+                headings: headings,
+                scrollAnchorOffsets: scrollAnchorOffsets,
+                navigationRequest: headingNavigationRequest,
+                scrollSyncRequest: editorScrollSyncRequest,
+                searchQuery: isSearchVisible ? searchQuery : "",
+                selectedSearchRange: selectedSearchRange,
+                searchNavigationRequest: searchNavigationRequest,
+                onActiveHeadingChange: setActiveHeading,
+                onScrollAnchorChange: syncPreviewScroll
+            )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(nsColor: .textBackgroundColor))
             .accessibilityLabel("Markdown editor")
+        }
     }
 
     private var previewPane: some View {
@@ -302,6 +348,122 @@ struct EditorView: View {
 
     private func updateScrollAnchorOffsets() {
         scrollAnchorOffsets = MarkdownHTMLRenderer.sourceOffsets(from: document.text)
+    }
+
+    private var documentSearchTitle: String {
+        fileURL?.lastPathComponent ?? "未保存文档"
+    }
+
+    private var searchMatches: [MarkdownSearchMatch] {
+        searchRegistry.matches(
+            scope: searchScope,
+            activeDocumentID: documentSearchID,
+            query: searchQuery
+        )
+    }
+
+    private var selectedSearchIndex: Int? {
+        guard let selectedSearchMatchID else { return nil }
+        return searchMatches.firstIndex { $0.id == selectedSearchMatchID }
+    }
+
+    private var selectedSearchRange: NSRange? {
+        guard let selectedSearchMatchID,
+              let match = searchMatches.first(where: { $0.id == selectedSearchMatchID }),
+              match.documentID == documentSearchID
+        else {
+            return nil
+        }
+        return match.range
+    }
+
+    private func registerOpenSearchDocument() {
+        searchRegistry.upsert(
+            id: documentSearchID,
+            title: documentSearchTitle,
+            fileURL: fileURL,
+            text: document.text,
+            windowBox: searchWindowBox,
+            navigateToMatch: { query, range, scope in
+                navigateToSearchMatch(query: query, range: range, scope: scope)
+            }
+        )
+    }
+
+    private func openSearch(scope: DocumentSearchScope) {
+        registerOpenSearchDocument()
+        searchScope = scope
+        isSearchVisible = true
+        if layout == .previewOnly {
+            layout = .split
+        }
+        selectFirstSearchMatchIfNeeded()
+    }
+
+    private func closeSearch() {
+        isSearchVisible = false
+        selectedSearchMatchID = nil
+        searchNavigationRequest = nil
+    }
+
+    private func selectFirstSearchMatchIfNeeded() {
+        let matches = searchMatches
+        guard !matches.isEmpty else {
+            selectedSearchMatchID = nil
+            searchNavigationRequest = nil
+            return
+        }
+
+        if let selectedSearchMatchID,
+           matches.contains(where: { $0.id == selectedSearchMatchID }) {
+            return
+        }
+        selectSearchMatch(matches[0])
+    }
+
+    private func validateSearchSelection() {
+        guard isSearchVisible, !searchQuery.isEmpty else { return }
+        selectFirstSearchMatchIfNeeded()
+    }
+
+    private func selectPreviousSearchMatch() {
+        selectSearchMatch(offset: -1)
+    }
+
+    private func selectNextSearchMatch() {
+        selectSearchMatch(offset: 1)
+    }
+
+    private func selectSearchMatch(offset: Int) {
+        let matches = searchMatches
+        guard !matches.isEmpty else { return }
+
+        let currentIndex = selectedSearchIndex ?? (offset > 0 ? -1 : 0)
+        let nextIndex = (currentIndex + offset + matches.count) % matches.count
+        selectSearchMatch(matches[nextIndex])
+    }
+
+    private func selectSearchMatch(_ match: MarkdownSearchMatch) {
+        selectedSearchMatchID = match.id
+        if match.documentID == documentSearchID {
+            if layout == .previewOnly {
+                layout = .split
+            }
+            searchNavigationRequest = DocumentSearchNavigationRequest(token: UUID(), range: match.range)
+        } else {
+            searchRegistry.navigate(to: match, query: searchQuery, scope: searchScope)
+        }
+    }
+
+    private func navigateToSearchMatch(query: String, range: NSRange, scope: DocumentSearchScope) {
+        searchQuery = query
+        searchScope = scope
+        isSearchVisible = true
+        selectedSearchMatchID = MarkdownSearchMatch.id(documentID: documentSearchID, range: range)
+        if layout == .previewOnly {
+            layout = .split
+        }
+        searchNavigationRequest = DocumentSearchNavigationRequest(token: UUID(), range: range)
     }
 
     private func reloadDocumentFromDisk() {

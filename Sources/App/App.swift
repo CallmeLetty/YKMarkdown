@@ -57,6 +57,7 @@ enum EditorFontSize {
 struct EditorCommandActions {
     let insertImagesFromPanel: () -> Void
     let beginUpload: () -> Void
+    let openSearch: (DocumentSearchScope) -> Void
 }
 
 private struct EditorCommandActionsKey: FocusedValueKey {
@@ -75,6 +76,22 @@ private struct EditorDocumentCommands: Commands {
     @AppStorage(EditorFontSize.storageKey) private var editorFontSize = EditorFontSize.defaultValue
 
     var body: some Commands {
+        CommandGroup(before: .textEditing) {
+            Button("Find in Current Document…") {
+                editorCommandActions?.openSearch(.current)
+            }
+            .keyboardShortcut("f", modifiers: [.command])
+            .disabled(editorCommandActions == nil)
+
+            Button("Find in Open Documents…") {
+                editorCommandActions?.openSearch(.all)
+            }
+            .keyboardShortcut("f", modifiers: [.command, .shift])
+            .disabled(editorCommandActions == nil)
+
+            Divider()
+        }
+
         CommandGroup(after: .pasteboard) {
             Button("Insert Image…") {
                 editorCommandActions?.insertImagesFromPanel()

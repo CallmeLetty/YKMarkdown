@@ -276,3 +276,36 @@
    Claimed at: 2026-08-18T15:44:08Z
    Done by: CODEX
    Done at: 2026-08-18T15:45:17Z
+
+26. document-search-shortcuts
+   Id: 26-document-search-shortcuts
+   Scope: 实现 Cmd+F 当前源码搜索、Cmd+Shift+F 全部已打开文档搜索、高亮与上一条/下一条跳转
+   Files: Sources/Views/EditorView.swift Sources/Features/Editor
+   Note: Finished Cmd+F current-source search and Cmd+Shift+F open-document search with NSTextView highlights and previous/next navigation; git diff --check passed; SwiftLint/xcodebuild/tests not run per project instructions
+   Detail: tasks/details/26-document-search-shortcuts.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-20T00:45:07Z
+   Done by: CODEX
+   Done at: 2026-08-20T00:54:40Z
+
+27. fix-search-bar-layout
+   Id: 27-fix-search-bar-layout
+   Scope: 修复搜索条窄宽度下输入框被挤压导致搜索文本不可见
+   Files: Sources/Views/EditorView.swift
+   Note: Fixed search bar compression with adaptive one-line/two-line layout and protected search field width; git diff --check passed; SwiftLint/xcodebuild/tests not run per project instructions
+   Detail: tasks/details/27-fix-search-bar-layout.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-20T01:00:27Z
+   Done by: CODEX
+   Done at: 2026-08-20T01:02:20Z
+
+28. extract-document-search-bar-view
+   Id: 28-extract-document-search-bar-view
+   Scope: 将 DocumentSearchBar 从 EditorView 抽到独立 View 文件并补 Preview
+   Files: Sources/Views/EditorView.swift Sources/Views/DocumentSearchBar.swift
+   Note: Extracted DocumentSearchBar into Sources/Views/DocumentSearchBar.swift and added wide/narrow SwiftUI previews; git diff --check passed; SwiftLint/xcodebuild/tests not run per project instructions
+   Detail: tasks/details/28-extract-document-search-bar-view.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-20T01:03:37Z
+   Done by: CODEX
+   Done at: 2026-08-20T01:05:25Z
