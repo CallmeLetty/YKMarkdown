@@ -466,7 +466,7 @@ struct EditorView: View {
     private func reloadDocumentFromDisk() {
         guard let fileURL, mergeSession == nil else { return }
         do {
-            let diskText = try String(contentsOf: fileURL, encoding: .utf8)
+            let diskText = try coordinatedDiskText(at: fileURL)
             let localText = document.text
             let baseText = lastKnownDiskText ?? localText
 
@@ -486,7 +486,6 @@ struct EditorView: View {
                 closeSearch()
                 mergeSession = DocumentMergeSession(
                     result: result,
-                    originalLocalText: localText,
                     remoteText: remoteBaseline
                 )
             }
@@ -510,6 +509,30 @@ struct EditorView: View {
     private func syncKnownDiskTextIfNeeded() {
         guard fileURL != nil, lastKnownDiskText == nil else { return }
         lastKnownDiskText = document.text
+    }
+
+    private func coordinatedDiskText(at fileURL: URL) throws -> String {
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        var coordinationError: NSError?
+        var readResult: Result<String, Error>?
+
+        coordinator.coordinate(
+            readingItemAt: fileURL,
+            options: .withoutChanges,
+            error: &coordinationError
+        ) { coordinatedURL in
+            readResult = Result {
+                try String(contentsOf: coordinatedURL, encoding: .utf8)
+            }
+        }
+
+        if let coordinationError {
+            throw coordinationError
+        }
+        guard let readResult else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        return try readResult.get()
     }
 
     private func beginUpload() {

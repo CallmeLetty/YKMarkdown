@@ -237,7 +237,6 @@ final class YKMarkdownTests: XCTestCase {
         )
         let session = DocumentMergeSession(
             result: result,
-            originalLocalText: "heading\nvalue 6\ntail\n",
             remoteText: "heading\nvalue 4\ntail\n"
         )
         let conflictID = try XCTUnwrap(result.conflicts.first?.id)

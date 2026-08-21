@@ -342,3 +342,14 @@
    Claimed at: 2026-08-21T03:39:08Z
    Done by: CODEX
    Done at: 2026-08-21T03:49:54Z
+
+32. cleanup-document-refresh-coordination
+   Id: 32-cleanup-document-refresh-coordination
+   Scope: Remove unused merge-session state and coordinate refresh reads with the document system
+   Files: Sources/Features/Editor/DocumentMergeSession.swift,Sources/Views/DocumentMergeConflictView.swift,Sources/Views/EditorView.swift,Tests/AppTests.swift,docs/plans/2026-08-21-manual-document-three-way-merge.md
+   Note: Removed unused originalLocalText state and call-site arguments; refresh now uses NSFileCoordinator .withoutChanges so disk reads remain coordinated without saving local edits first; strict macOS build succeeded; tests and SwiftLint not run per user preference
+   Detail: tasks/details/32-cleanup-document-refresh-coordination.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-21T03:57:52Z
+   Done by: CODEX
+   Done at: 2026-08-21T04:00:34Z

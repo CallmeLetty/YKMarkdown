@@ -109,7 +109,6 @@ Use an observable main-actor model:
 final class DocumentMergeSession: ObservableObject {
     enum Resolution { case local, remote, both, manual(String) }
 
-    let originalLocalText: String
     let remoteText: String
     @Published private(set) var segments: [DocumentMergeSessionSegment]
     @Published private(set) var focusedConflictID: UUID?

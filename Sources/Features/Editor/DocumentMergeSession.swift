@@ -45,13 +45,11 @@ final class DocumentMergeSession: ObservableObject {
         case manual(String)
     }
 
-    let originalLocalText: String
     let remoteText: String
     @Published private(set) var segments: [DocumentMergeSessionSegment]
     @Published private(set) var focusedConflictID: UUID?
 
-    init(result: DocumentMergeResult, originalLocalText: String, remoteText: String) {
-        self.originalLocalText = originalLocalText
+    init(result: DocumentMergeResult, remoteText: String) {
         self.remoteText = remoteText
         segments = result.segments.map { segment in
             switch segment {

@@ -301,7 +301,6 @@ private struct DocumentMergeConflictPreview: View {
         )
         _session = StateObject(wrappedValue: DocumentMergeSession(
             result: result,
-            originalLocalText: "",
             remoteText: ""
         ))
     }
