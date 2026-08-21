@@ -353,3 +353,14 @@
    Claimed at: 2026-08-21T03:57:52Z
    Done by: CODEX
    Done at: 2026-08-21T04:00:34Z
+
+33. chinese-commit-descriptions
+   Id: 33-chinese-commit-descriptions
+   Scope: 在仓库规则中明确 Git 提交具体描述必须使用中文
+   Files: AGENTS.md,tasks/TASKS.md,tasks/details
+   Note: 已在 AGENTS.md 记录提交信息规则：允许英文类型前缀，具体描述必须使用中文；纯文档改动，git diff --check 通过，无需编译或测试
+   Detail: tasks/details/33-chinese-commit-descriptions.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-21T04:05:10Z
+   Done by: CODEX
+   Done at: 2026-08-21T04:05:22Z
