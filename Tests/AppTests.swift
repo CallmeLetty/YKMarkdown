@@ -137,6 +137,120 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(matches[0].snippet.contains("second target line"))
     }
 
+    func testThreeWayMergeAppliesNonOverlappingLocalAndRemoteEdits() {
+        let result = DocumentThreeWayMerge.merge(
+            base: "first\nsecond\nthird\n",
+            local: "local first\nsecond\nthird\n",
+            remote: "first\nsecond\nremote third\n"
+        )
+
+        XCTAssertTrue(result.conflicts.isEmpty)
+        XCTAssertEqual(result.resolvedText, "local first\nsecond\nremote third\n")
+    }
+
+    func testThreeWayMergeCreatesConflictForOverlappingEdits() {
+        let result = DocumentThreeWayMerge.merge(
+            base: "VStack(spacing: 5) {\n",
+            local: "VStack(spacing: 6) {\n",
+            remote: "VStack(spacing: 4) {\n"
+        )
+
+        XCTAssertEqual(result.conflicts.count, 1)
+        XCTAssertEqual(result.conflicts.first?.localText, "VStack(spacing: 6) {\n")
+        XCTAssertEqual(result.conflicts.first?.remoteText, "VStack(spacing: 4) {\n")
+        XCTAssertNil(result.resolvedText)
+    }
+
+    func testThreeWayMergeDeduplicatesIdenticalEdits() {
+        let result = DocumentThreeWayMerge.merge(
+            base: "before\n",
+            local: "same change\n",
+            remote: "same change\n"
+        )
+
+        XCTAssertTrue(result.conflicts.isEmpty)
+        XCTAssertEqual(result.resolvedText, "same change\n")
+    }
+
+    func testThreeWayMergeHandlesDifferentInsertionsAtSameLocationAsConflict() {
+        let result = DocumentThreeWayMerge.merge(
+            base: "anchor\n",
+            local: "local\nanchor\n",
+            remote: "remote\nanchor\n"
+        )
+
+        XCTAssertEqual(result.conflicts.count, 1)
+        XCTAssertEqual(result.conflicts.first?.localText, "local\n")
+        XCTAssertEqual(result.conflicts.first?.remoteText, "remote\n")
+    }
+
+    func testThreeWayMergePreservesMissingFinalNewline() {
+        let result = DocumentThreeWayMerge.merge(
+            base: "first\nsecond",
+            local: "local first\nsecond",
+            remote: "first\nremote second"
+        )
+
+        XCTAssertEqual(result.resolvedText, "local first\nremote second")
+    }
+
+    func testThreeWayMergeUsesUTF16CompatibleInlineRanges() throws {
+        let result = DocumentThreeWayMerge.merge(
+            base: "😀 spacing 5\n",
+            local: "😀 spacing 6\n",
+            remote: "😀 spacing 4\n"
+        )
+        let conflict = try XCTUnwrap(result.conflicts.first)
+        let localRange = try XCTUnwrap(conflict.localChangedRanges.first)
+        let remoteRange = try XCTUnwrap(conflict.remoteChangedRanges.first)
+
+        XCTAssertEqual((conflict.localText as NSString).substring(with: localRange), "6")
+        XCTAssertEqual((conflict.remoteText as NSString).substring(with: remoteRange), "4")
+    }
+
+    func testRefreshDecisionPreservesLocalWhenDiskIsUnchanged() {
+        let decision = DocumentThreeWayMerge.refreshDecision(
+            base: "base\n",
+            local: "local\n",
+            remote: "base\n"
+        )
+
+        XCTAssertEqual(decision, .preserveLocal)
+    }
+
+    func testRefreshDecisionLoadsRemoteWhenLocalIsUnchanged() {
+        let decision = DocumentThreeWayMerge.refreshDecision(
+            base: "base\n",
+            local: "base\n",
+            remote: "remote\n"
+        )
+
+        XCTAssertEqual(decision, .apply(text: "remote\n", remoteBaseline: "remote\n"))
+    }
+
+    @MainActor
+    func testMergeSessionResolvesConflictAndBuildsFinalText() throws {
+        let result = DocumentThreeWayMerge.merge(
+            base: "heading\nvalue 5\ntail\n",
+            local: "heading\nvalue 6\ntail\n",
+            remote: "heading\nvalue 4\ntail\n"
+        )
+        let session = DocumentMergeSession(
+            result: result,
+            originalLocalText: "heading\nvalue 6\ntail\n",
+            remoteText: "heading\nvalue 4\ntail\n"
+        )
+        let conflictID = try XCTUnwrap(result.conflicts.first?.id)
+
+        XCTAssertEqual(session.unresolvedCount, 1)
+        XCTAssertNil(session.finalText)
+
+        session.resolve(conflictID, using: .manual("value resolved\n"))
+
+        XCTAssertEqual(session.unresolvedCount, 0)
+        XCTAssertEqual(session.finalText, "heading\nvalue resolved\ntail\n")
+    }
+
     func testFrontmatterRoundTrip() {
         let meta = BlogFrontmatter(
             title: "你好",

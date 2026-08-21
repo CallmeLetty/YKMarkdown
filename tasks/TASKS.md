@@ -331,3 +331,14 @@
    Claimed at: 2026-08-21T03:27:27Z
    Done by: CODEX
    Done at: 2026-08-21T03:30:11Z
+
+31. implement-manual-document-three-way-merge
+   Id: 31-implement-manual-document-three-way-merge
+   Scope: 实现手动刷新三方合并、源码红绿冲突解决、冲突导航与计数
+   Files: Sources/Features/Editor/DocumentThreeWayMerge.swift,Sources/Features/Editor/DocumentMergeSession.swift,Sources/Views/DocumentMergeConflictView.swift,Sources/Views/EditorView.swift,Tests/AppTests.swift,tasks/TASKS.md,tasks/details
+   Note: 已实现手动刷新三方合并、无标记源码红绿冲突解决、未解决计数与循环导航；严格 App build 和 test build 成功；按用户偏好未运行测试或 SwiftLint；UI 自动化因当前窗口焦点被外部切换而停止
+   Detail: tasks/details/31-implement-manual-document-three-way-merge.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-21T03:39:08Z
+   Done by: CODEX
+   Done at: 2026-08-21T03:49:54Z

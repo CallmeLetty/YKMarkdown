@@ -30,8 +30,7 @@ struct EditorView: View {
     @State private var showUploadSuccess = false
     @State private var uploadSuccessMessage = ""
     @State private var uploadedFileURL: URL?
-    @State private var showReloadConfirmation = false
-    @State private var pendingReloadText: String?
+    @State private var mergeSession: DocumentMergeSession?
     @State private var lastKnownDiskText: String?
     @ObservedObject private var searchRegistry = OpenDocumentSearchRegistry.shared
     @StateObject private var searchWindowBox = SearchDocumentWindowBox()
@@ -44,40 +43,49 @@ struct EditorView: View {
 
     var body: some View {
         Group {
-            switch layout {
-            case .split:
-                ThreePaneSplitView(
-                    isLeadingVisible: isOutlineVisible,
-                    initialFractions: (leading: 0.2, middle: 0.4),
-                    minimumWidths: (leading: 160, middle: 280, trailing: 280)
-                ) {
-                    outlinePane
-                } middle: {
-                    editorPane
-                } trailing: {
-                    previewPane
-                }
+            if let mergeSession {
+                DocumentMergeConflictView(
+                    session: mergeSession,
+                    fontSize: editorFontSize,
+                    onCancel: cancelMerge,
+                    onComplete: completeMerge
+                )
+            } else {
+                switch layout {
+                case .split:
+                    ThreePaneSplitView(
+                        isLeadingVisible: isOutlineVisible,
+                        initialFractions: (leading: 0.2, middle: 0.4),
+                        minimumWidths: (leading: 160, middle: 280, trailing: 280)
+                    ) {
+                        outlinePane
+                    } middle: {
+                        editorPane
+                    } trailing: {
+                        previewPane
+                    }
 
-            case .editorOnly:
-                TwoPaneSplitView(
-                    isLeadingVisible: isOutlineVisible,
-                    initialLeadingFraction: 0.2,
-                    minimumWidths: (160, 320)
-                ) {
-                    outlinePane
-                } trailing: {
-                    editorPane
-                }
+                case .editorOnly:
+                    TwoPaneSplitView(
+                        isLeadingVisible: isOutlineVisible,
+                        initialLeadingFraction: 0.2,
+                        minimumWidths: (160, 320)
+                    ) {
+                        outlinePane
+                    } trailing: {
+                        editorPane
+                    }
 
-            case .previewOnly:
-                TwoPaneSplitView(
-                    isLeadingVisible: isOutlineVisible,
-                    initialLeadingFraction: 0.2,
-                    minimumWidths: (160, 320)
-                ) {
-                    outlinePane
-                } trailing: {
-                    previewPane
+                case .previewOnly:
+                    TwoPaneSplitView(
+                        isLeadingVisible: isOutlineVisible,
+                        initialLeadingFraction: 0.2,
+                        minimumWidths: (160, 320)
+                    ) {
+                        outlinePane
+                    } trailing: {
+                        previewPane
+                    }
                 }
             }
         }
@@ -90,6 +98,7 @@ struct EditorView: View {
                 } label: {
                     Label("Outline", systemImage: "sidebar.left")
                 }
+                .disabled(mergeSession != nil)
                 .help(isOutlineVisible ? "Hide document outline" : "Show document outline")
 
                 Button {
@@ -97,7 +106,7 @@ struct EditorView: View {
                 } label: {
                     Label("Reload Current Document", systemImage: "arrow.clockwise")
                 }
-                .disabled(fileURL == nil)
+                .disabled(fileURL == nil || mergeSession != nil)
                 .help("从磁盘重新载入当前文档")
 
                 Picker("Layout", selection: $layout) {
@@ -109,6 +118,7 @@ struct EditorView: View {
                         .tag(EditorLayout.previewOnly)
                 }
                 .pickerStyle(.segmented)
+                .disabled(mergeSession != nil)
                 .help("Switch between editor, split, and preview")
 
                 Button {
@@ -116,6 +126,7 @@ struct EditorView: View {
                 } label: {
                     Label("Insert Image", systemImage: "photo")
                 }
+                .disabled(mergeSession != nil)
                 .help("Insert image into Markdown (saved under ./assets)")
 
                 Button {
@@ -123,6 +134,7 @@ struct EditorView: View {
                 } label: {
                     Label("Upload to Blog", systemImage: "arrow.up.doc")
                 }
+                .disabled(mergeSession != nil)
                 .help("Upload current document to Yakamoz-Blog/content")
             }
         }
@@ -136,16 +148,6 @@ struct EditorView: View {
             Button("好的", role: .cancel) {}
         } message: {
             Text(alertMessage)
-        }
-        .alert(reloadConfirmationTitle, isPresented: $showReloadConfirmation) {
-            Button("取消", role: .cancel) {
-                pendingReloadText = nil
-            }
-            Button("刷新", role: .destructive) {
-                applyPendingReload()
-            }
-        } message: {
-            Text("只会刷新当前文档。刷新会用磁盘上的内容替换当前编辑内容，未保存修改会丢失。")
         }
         .alert("上传成功", isPresented: $showUploadSuccess) {
             if let uploadedFileURL {
@@ -188,6 +190,7 @@ struct EditorView: View {
             }
         }
         .onChange(of: fileURL) { _, _ in
+            mergeSession = nil
             lastKnownDiskText = fileURL == nil ? nil : document.text
             registerOpenSearchDocument()
         }
@@ -245,13 +248,6 @@ struct EditorView: View {
             branch: blogBranch,
             contentDirectory: blogContentDirectory
         )
-    }
-
-    private var reloadConfirmationTitle: String {
-        guard let fileName = fileURL?.lastPathComponent else {
-            return "刷新当前文档？"
-        }
-        return "刷新 \(fileName)？"
     }
 
     private var editorPane: some View {
@@ -391,6 +387,7 @@ struct EditorView: View {
     }
 
     private func openSearch(scope: DocumentSearchScope) {
+        guard mergeSession == nil else { return }
         registerOpenSearchDocument()
         searchScope = scope
         isSearchVisible = true
@@ -467,39 +464,47 @@ struct EditorView: View {
     }
 
     private func reloadDocumentFromDisk() {
-        guard let fileURL else { return }
+        guard let fileURL, mergeSession == nil else { return }
         do {
             let diskText = try String(contentsOf: fileURL, encoding: .utf8)
-            if diskText == document.text {
-                lastKnownDiskText = diskText
-                return
+            let localText = document.text
+            let baseText = lastKnownDiskText ?? localText
+
+            switch DocumentThreeWayMerge.refreshDecision(
+                base: baseText,
+                local: localText,
+                remote: diskText
+            ) {
+            case let .unchanged(remoteBaseline):
+                lastKnownDiskText = remoteBaseline
+            case .preserveLocal:
+                break
+            case let .apply(text, remoteBaseline):
+                document.text = text
+                lastKnownDiskText = remoteBaseline
+            case let .resolveConflicts(result, remoteBaseline):
+                closeSearch()
+                mergeSession = DocumentMergeSession(
+                    result: result,
+                    originalLocalText: localText,
+                    remoteText: remoteBaseline
+                )
             }
-            guard hasLocalReloadConflict else {
-                applyReload(text: diskText)
-                return
-            }
-            pendingReloadText = diskText
-            showReloadConfirmation = true
         } catch {
             alertMessage = "无法刷新文档：\(error.localizedDescription)"
             showErrorAlert = true
         }
     }
 
-    private func applyPendingReload() {
-        guard let pendingReloadText else { return }
-        applyReload(text: pendingReloadText)
-        self.pendingReloadText = nil
+    private func completeMerge() {
+        guard let mergeSession, let finalText = mergeSession.finalText else { return }
+        document.text = finalText
+        lastKnownDiskText = mergeSession.remoteText
+        self.mergeSession = nil
     }
 
-    private var hasLocalReloadConflict: Bool {
-        guard let lastKnownDiskText else { return true }
-        return document.text != lastKnownDiskText
-    }
-
-    private func applyReload(text: String) {
-        document.text = text
-        lastKnownDiskText = text
+    private func cancelMerge() {
+        mergeSession = nil
     }
 
     private func syncKnownDiskTextIfNeeded() {
