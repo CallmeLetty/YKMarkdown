@@ -320,3 +320,14 @@
    Claimed at: 2026-08-20T03:21:39Z
    Done by: CODEX
    Done at: 2026-08-20T03:40:34Z
+
+30. manual-document-three-way-merge
+   Id: 30-manual-document-three-way-merge
+   Scope: 设计手动刷新时的三方文本合并、红绿冲突源码模式、冲突导航与计数
+   Files: docs/plans/2026-08-21-manual-document-three-way-merge-design.md,docs/plans/2026-08-21-manual-document-three-way-merge.md,tasks/TASKS.md,tasks/details
+   Note: 已记录手动三方刷新、源码红绿冲突模式、导航与计数设计及实施计划；git diff --check 通过；未改功能代码，无需构建测试
+   Detail: tasks/details/30-manual-document-three-way-merge.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-21T03:27:27Z
+   Done by: CODEX
+   Done at: 2026-08-21T03:30:11Z
