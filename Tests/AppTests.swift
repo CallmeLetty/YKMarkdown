@@ -59,9 +59,39 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(html.contains("markdownChanged"))
         XCTAssertTrue(html.contains("--font-size: 18.0px"))
         XCTAssertTrue(html.contains("window.setFontSize"))
+        XCTAssertTrue(html.contains("data-typography-theme=\"writing\""))
+        XCTAssertTrue(html.contains("window.setAppearance"))
         XCTAssertTrue(html.contains("window.setSourceOffsets"))
         XCTAssertTrue(html.contains("window.scrollToSourceOffset"))
         XCTAssertFalse(html.contains("scrollPercentage"))
+    }
+
+    func testEditableDocumentIncludesResolvedTypographyAppearance() {
+        let html = MarkdownHTMLRenderer.editableDocument(
+            bodyHTML: "<p>Hi</p>",
+            turndownScript: "function TurndownService(){}",
+            typographyTheme: AppTypographyTheme.developer.rawValue,
+            backgroundColorCSS: "#19201E",
+            foregroundColorCSS: "#F2F6F4",
+            colorSchemeCSS: "dark"
+        )
+
+        XCTAssertTrue(html.contains("data-typography-theme=\"developer\""))
+        XCTAssertTrue(html.contains("data-color-scheme=\"dark\""))
+        XCTAssertTrue(html.contains("--bg: #19201E"))
+        XCTAssertTrue(html.contains("--text: #F2F6F4"))
+        XCTAssertTrue(html.contains(":root[data-typography-theme=\"writing\"]"))
+        XCTAssertTrue(html.contains(":root[data-typography-theme=\"minimal\"]"))
+        XCTAssertTrue(html.contains(":root[data-typography-theme=\"developer\"]"))
+        XCTAssertTrue(html.contains("document.documentElement.dataset.colorScheme === 'dark'"))
+    }
+
+    func testTypographyThemeStoredValueFallsBackToWritingTheme() {
+        XCTAssertEqual(AppTypographyTheme.stored(rawValue: "unknown"), .writing)
+        XCTAssertEqual(AppTypographyTheme.stored(rawValue: "developer"), .developer)
+        XCTAssertEqual(AppTypographyTheme.writing.defaultBackgroundHex, "#FFFDF8")
+        XCTAssertEqual(AppTypographyTheme.minimal.defaultBackgroundHex, "#FFFFFF")
+        XCTAssertEqual(AppTypographyTheme.developer.defaultBackgroundHex, "#19201E")
     }
 
     func testEditableDocumentUsesBlockLevelPreviewEdits() {
@@ -75,6 +105,14 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(html.contains("turndown.addRule('heading'"))
         XCTAssertTrue(html.contains("turndown.addRule('mermaid'"))
         XCTAssertTrue(html.contains("renderMermaidDiagrams"))
+        XCTAssertTrue(html.contains("fontSize: mermaidFontSize()"))
+        XCTAssertTrue(html.contains("nodeSpacing: 18"))
+        XCTAssertTrue(html.contains("rankSpacing: 24"))
+        XCTAssertTrue(html.contains("padding: 8"))
+        XCTAssertTrue(html.contains("stabilizeMermaidSubgraphOrder(source)"))
+        XCTAssertTrue(html.contains("topLevelIDs[index] + ' ~~~ ' + id"))
+        XCTAssertTrue(html.contains("preserveMermaidTextScale(diagram)"))
+        XCTAssertTrue(html.contains("svg.style.width = naturalWidth + 'px'"))
     }
 
     func testPreviewBlockPatchPreservesUneditedMarkdown() {

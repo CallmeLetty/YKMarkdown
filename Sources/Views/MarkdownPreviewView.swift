@@ -14,6 +14,10 @@ struct MarkdownPreviewView: NSViewRepresentable {
     var scrollSyncRequest: MarkdownScrollSyncRequest?
     var themeColorCSS: String
     var fontSize: Double
+    var typographyTheme: String
+    var backgroundColorCSS: String
+    var foregroundColorCSS: String
+    var colorSchemeCSS: String
     var onActiveHeadingChange: (String?) -> Void
     var onScrollAnchorChange: (Int) -> Void
 
@@ -63,6 +67,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
         context.coordinator.applyMarkdownFromSourceIfNeeded(markdown)
         context.coordinator.applyThemeColorIfNeeded(themeColorCSS)
         context.coordinator.applyFontSizeIfNeeded(fontSize)
+        context.coordinator.applyAppearanceIfNeeded(.init(parent: self))
 
         if let request = insertImageRequest,
            context.coordinator.lastInsertToken != request.token {
@@ -91,6 +96,20 @@ struct MarkdownPreviewView: NSViewRepresentable {
 
     @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+        struct PreviewAppearance: Equatable {
+            let theme: String
+            let backgroundColor: String
+            let foregroundColor: String
+            let colorScheme: String
+
+            init(parent: MarkdownPreviewView) {
+                theme = parent.typographyTheme
+                backgroundColor = parent.backgroundColorCSS
+                foregroundColor = parent.foregroundColorCSS
+                colorScheme = parent.colorSchemeCSS
+            }
+        }
+
         var parent: MarkdownPreviewView
         weak var webView: PreviewWKWebView?
         var baseURL: URL?
@@ -105,8 +124,10 @@ struct MarkdownPreviewView: NSViewRepresentable {
         private var pendingScrollSourceOffset: Int?
         private var pendingThemeColor: String?
         private var pendingFontSize: Double?
+        private var pendingAppearance: PreviewAppearance?
         private var lastAppliedThemeColor = ""
         private var lastAppliedFontSize = 0.0
+        private var lastAppliedAppearance: PreviewAppearance?
 
         init(parent: MarkdownPreviewView) {
             self.parent = parent
@@ -118,13 +139,19 @@ struct MarkdownPreviewView: NSViewRepresentable {
             lastAppliedMarkdown = parent.markdown
             lastAppliedThemeColor = parent.themeColorCSS
             lastAppliedFontSize = parent.fontSize
+            lastAppliedAppearance = PreviewAppearance(parent: parent)
             pendingFontSize = nil
+            pendingAppearance = nil
             let body = MarkdownHTMLRenderer.bodyHTML(from: parent.markdown)
             let html = MarkdownHTMLRenderer.editableDocument(
                 bodyHTML: body,
                 turndownScript: Self.turndownScript,
                 accentColorCSS: parent.themeColorCSS,
-                fontSize: parent.fontSize
+                fontSize: parent.fontSize,
+                typographyTheme: parent.typographyTheme,
+                backgroundColorCSS: parent.backgroundColorCSS,
+                foregroundColorCSS: parent.foregroundColorCSS,
+                colorSchemeCSS: parent.colorSchemeCSS
             )
             let loadBase = parent.baseURL?.deletingLastPathComponent()
                 ?? Bundle.main.resourceURL
@@ -151,6 +178,16 @@ struct MarkdownPreviewView: NSViewRepresentable {
             }
             let script = "window.setFontSize(\(fontSize));"
             webView.evaluateJavaScript(script, completionHandler: nil)
+        }
+
+        func applyAppearanceIfNeeded(_ appearance: PreviewAppearance) {
+            guard appearance != lastAppliedAppearance else { return }
+            lastAppliedAppearance = appearance
+            guard isPageReady, let webView else {
+                pendingAppearance = appearance
+                return
+            }
+            webView.evaluateJavaScript(Self.appearanceScript(appearance), completionHandler: nil)
         }
 
         func applyMarkdownFromSourceIfNeeded(_ markdown: String) {
@@ -275,6 +312,13 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 webView.evaluateJavaScript(script, completionHandler: nil)
                 self.pendingFontSize = nil
             }
+            if let pendingAppearance {
+                webView.evaluateJavaScript(
+                    Self.appearanceScript(pendingAppearance),
+                    completionHandler: nil
+                )
+                self.pendingAppearance = nil
+            }
         }
 
         func webView(
@@ -324,6 +368,15 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 .replacingOccurrences(of: "\n", with: "\\n")
                 .replacingOccurrences(of: "\r", with: "\\r")
             return "'\(escaped)'"
+        }
+
+        private static func appearanceScript(_ appearance: PreviewAppearance) -> String {
+            "window.setAppearance(" + [
+                jsString(appearance.theme),
+                jsString(appearance.backgroundColor),
+                jsString(appearance.foregroundColor),
+                jsString(appearance.colorScheme)
+            ].joined(separator: ", ") + ");"
         }
 
         private static let turndownScript = TurndownScript.source

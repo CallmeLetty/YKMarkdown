@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>温润写作型 · YKMarkdown</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --canvas: #e9e4d9;
+      --chrome: #f4f0e7;
+      --editor: #f8f5ed;
+      --paper: #fffdfa;
+      --ink: #28231f;
+      --muted: #84796e;
+      --line: #ddd5c8;
+      --accent: #a74d31;
+      --accent-soft: #efe0d7;
+      --code: #f2eee7;
+      --editor-font: "SFMono-Regular", "SF Mono", Menlo, "PingFang SC", monospace;
+      --body-font: "Songti SC", STSong, "Times New Roman", serif;
+      --sans-font: "Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% 10%, rgba(167, 77, 49, .08), transparent 30rem),
+        var(--canvas);
+      font-family: var(--sans-font);
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: 52px minmax(0, 1fr);
+      min-height: 100vh;
+      overflow: hidden;
+      background: var(--paper);
+    }
+
+    .toolbar {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in srgb, var(--chrome) 92%, transparent);
+      box-shadow: 0 1px 10px rgba(59, 45, 35, .05);
+    }
+
+    .traffic { display: flex; gap: 7px; }
+    .traffic i { width: 11px; height: 11px; border-radius: 50%; background: #c8c0b5; }
+    .traffic i:first-child { background: #df7761; }
+    .traffic i:nth-child(2) { background: #d7ad58; }
+    .traffic i:nth-child(3) { background: #78a976; }
+
+    .document-title {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .02em;
+    }
+
+    .document-title span {
+      margin-left: 7px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      justify-self: end;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .tool-button,
+    .mode {
+      height: 28px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      color: #685e55;
+      background: rgba(255, 255, 255, .5);
+      font: 600 11px var(--sans-font);
+    }
+
+    .tool-button { width: 30px; }
+    .mode { padding: 0 11px; color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(300px, .82fr) minmax(420px, 1.18fr);
+      min-height: 0;
+    }
+
+    .pane { min-width: 0; overflow: auto; }
+
+    .source {
+      position: relative;
+      border-right: 1px solid var(--line);
+      background: var(--editor);
+    }
+
+    .pane-label {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      display: flex;
+      justify-content: space-between;
+      padding: 13px 22px 9px;
+      color: var(--muted);
+      background: linear-gradient(var(--editor) 70%, rgba(248, 245, 237, 0));
+      font: 700 10px var(--sans-font);
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .source pre {
+      min-height: calc(100vh - 90px);
+      margin: 0;
+      padding: 20px 30px 64px;
+      outline: none;
+      color: #4b433c;
+      font: 400 15px/1.72 var(--editor-font);
+      letter-spacing: -.012em;
+      white-space: pre-wrap;
+      word-break: break-word;
+      caret-color: var(--accent);
+    }
+
+    .source pre::selection,
+    .article ::selection { background: rgba(167, 77, 49, .18); }
+
+    .preview { background: var(--paper); }
+
+    .article {
+      width: min(680px, calc(100% - 72px));
+      margin: 0 auto;
+      padding: 64px 0 110px;
+      outline: none;
+      font: 400 17px/1.9 var(--body-font);
+      letter-spacing: .015em;
+    }
+
+    .article .kicker {
+      margin: 0 0 18px;
+      color: var(--accent);
+      font: 700 11px/1 var(--sans-font);
+      letter-spacing: .19em;
+      text-transform: uppercase;
+    }
+
+    .article h1,
+    .article h2 {
+      font-family: var(--sans-font);
+      letter-spacing: -.035em;
+    }
+
+    .article h1 {
+      max-width: 540px;
+      margin: 0 0 18px;
+      font-size: clamp(34px, 4vw, 48px);
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .article .dek {
+      margin: 0 0 42px;
+      color: #766b61;
+      font-size: 18px;
+      line-height: 1.75;
+    }
+
+    .article h2 {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 2.2em 0 .8em;
+      font-size: 24px;
+      font-weight: 650;
+      line-height: 1.35;
+    }
+
+    .article h2::before {
+      width: 22px;
+      height: 2px;
+      background: var(--accent);
+      content: "";
+    }
+
+    .article p { margin: 0 0 1.35em; }
+    .article strong { color: #171310; font-weight: 700; }
+    .article a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 4px; }
+
+    blockquote {
+      position: relative;
+      margin: 2em 0;
+      padding: 1.15em 1.5em 1.15em 2em;
+      color: #5f5147;
+      background: linear-gradient(90deg, var(--accent-soft), rgba(239, 224, 215, .3));
+      border-radius: 3px 12px 12px 3px;
+      font-size: 18px;
+    }
+
+    blockquote::before {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 3px;
+      background: var(--accent);
+      content: "";
+    }
+
+    ul { margin: 0 0 1.5em; padding-left: 1.35em; }
+    li { margin: .5em 0; padding-left: .25em; }
+    li::marker { color: var(--accent); }
+
+    code {
+      padding: .12em .38em;
+      border: 1px solid #e3dcd1;
+      border-radius: 5px;
+      background: var(--code);
+      font: .83em/1.5 var(--editor-font);
+      letter-spacing: -.02em;
+    }
+
+    .code-block {
+      position: relative;
+      margin: 1.8em 0;
+      padding: 42px 20px 18px;
+      overflow: auto;
+      border: 1px solid #e4ddd3;
+      border-radius: 12px;
+      background: var(--code);
+      color: #443d38;
+      font: 13px/1.7 var(--editor-font);
+      letter-spacing: -.02em;
+      white-space: pre;
+    }
+
+    .code-block::before {
+      position: absolute;
+      top: 12px;
+      left: 18px;
+      color: #9a8d81;
+      font: 700 9px/1 var(--sans-font);
+      letter-spacing: .15em;
+      content: "SWIFT";
+    }
+
+    .note {
+      margin-top: 48px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font: 12px/1.6 var(--sans-font);
+    }
+
+    @media (max-width: 820px) {
+      .toolbar { grid-template-columns: auto 1fr; }
+      .document-title { justify-self: end; }
+      .toolbar-actions { display: none; }
+      .workspace { grid-template-columns: 1fr; }
+      .source { min-height: 52vh; border-right: 0; border-bottom: 1px solid var(--line); }
+      .article { width: min(680px, calc(100% - 42px)); padding-top: 48px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="toolbar">
+      <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="document-title">写作与工具的距离.md <span>已保存</span></div>
+      <div class="toolbar-actions">
+        <button class="tool-button" aria-label="显示目录">☰</button>
+        <button class="mode">分栏阅读</button>
+        <button class="tool-button" aria-label="更多操作">•••</button>
+      </div>
+    </header>
+
+    <section class="workspace">
+      <section class="pane source" aria-label="Markdown 原文">
+        <div class="pane-label"><span>Markdown</span><span>15 pt · 1.72</span></div>
+        <pre contenteditable="true" spellcheck="false"># 写作与工具的距离
+
+好的写作工具不该抢走注意力。它应该退到纸张背后，只在你需要的时候出现。
+
+## 字体不是装饰
+
+一套排版首先要解决的不是“漂亮”，而是阅读节奏。中文、English 与 `inline code` 混排时，字面大小、基线和留白必须彼此协调。
+
+> 当界面安静下来，内容才会发出声音。
+
+我希望编辑器保留清晰的 Markdown 结构，同时让右侧预览接近文章最终发布时的状态：
+
+- 正文有稳定、舒展的行距
+- 标题足够明确，但不压迫正文
+- 代码与引用可以被一眼识别
+
+```swift
+let idea = Draft(title: "新的文章")
+editor.focus(on: idea)
+```
+
+## 最后一点克制
+
+设计并不是不断添加，而是在每一个选择中找到恰当的分寸。</pre>
+      </section>
+
+      <section class="pane preview" aria-label="文章预览">
+        <article class="article" contenteditable="true">
+          <p class="kicker">Writing · 6 min read</p>
+          <h1>写作与工具的距离</h1>
+          <p class="dek">好的写作工具不该抢走注意力。它应该退到纸张背后，只在你需要的时候出现。</p>
+
+          <h2>字体不是装饰</h2>
+          <p>一套排版首先要解决的不是“漂亮”，而是<strong>阅读节奏</strong>。中文、English 与 <code>inline code</code> 混排时，字面大小、基线和留白必须彼此协调。</p>
+          <blockquote>当界面安静下来，内容才会发出声音。</blockquote>
+          <p>我希望编辑器保留清晰的 Markdown 结构，同时让右侧预览接近文章最终发布时的状态：</p>
+          <ul>
+            <li>正文有稳定、舒展的行距</li>
+            <li>标题足够明确，但不压迫正文</li>
+            <li>代码与引用可以被一眼识别</li>
+          </ul>
+          <pre class="code-block">let idea = Draft(title: "新的文章")
+editor.focus(on: idea)</pre>
+
+          <h2>最后一点克制</h2>
+          <p>设计并不是不断添加，而是在每一个选择中找到恰当的分寸。更长的正文会被限制在舒适的阅读宽度内，不会随着窗口一起无限拉长。</p>
+          <p class="note">排版参数：Songti SC 17px / 1.90 · 标题 Avenir Next + PingFang SC · 正文宽度 680px</p>
+        </article>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

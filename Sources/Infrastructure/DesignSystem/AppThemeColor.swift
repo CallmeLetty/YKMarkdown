@@ -52,7 +52,7 @@ enum AppThemeColor {
         }
     }
 
-    private static func nsColor(hex: String) -> NSColor? {
+    static func nsColor(hex: String) -> NSColor? {
         let normalized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "#"))
         guard normalized.count == 6, let value = Int(normalized, radix: 16) else { return nil }
@@ -65,7 +65,7 @@ enum AppThemeColor {
         )
     }
 
-    private static func hex(from color: NSColor) -> String {
+    static func hex(from color: NSColor) -> String {
         guard let rgb = color.usingColorSpace(.sRGB) else { return defaultCustomHex }
         return String(
             format: "#%02X%02X%02X",

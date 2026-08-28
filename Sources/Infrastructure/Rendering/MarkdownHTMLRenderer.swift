@@ -17,87 +17,154 @@ enum MarkdownHTMLRenderer {
         bodyHTML: String,
         turndownScript: String,
         accentColorCSS: String = "#0969DA",
-        fontSize: Double = 14
+        fontSize: Double = 14,
+        typographyTheme: String = "writing",
+        backgroundColorCSS: String = "#FFFDF8",
+        foregroundColorCSS: String = "#202522",
+        colorSchemeCSS: String = "light"
     ) -> String {
         """
         <!DOCTYPE html>
-        <html lang="en">
+        <html lang="zh-CN" data-typography-theme="\(typographyTheme)" data-color-scheme="\(colorSchemeCSS)">
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <style>
             :root {
-              color-scheme: light dark;
-              --text: #1f2328;
-              --muted: #656d76;
-              --border: #d0d7de;
-              --code-bg: #f6f8fa;
-              --quote-border: #d0d7de;
+              color-scheme: \(colorSchemeCSS);
+              --text: \(foregroundColorCSS);
+              --bg: \(backgroundColorCSS);
+              --muted: color-mix(in srgb, var(--text) 60%, var(--bg));
+              --border: color-mix(in srgb, var(--text) 16%, var(--bg));
+              --code-bg: color-mix(in srgb, var(--text) 6%, var(--bg));
+              --quote-bg: color-mix(in srgb, var(--text) 4%, var(--bg));
+              --quote-border: color-mix(in srgb, var(--link) 70%, var(--bg));
               --link: \(accentColorCSS);
-              --bg: transparent;
               --focus: color-mix(in srgb, \(accentColorCSS) 20%, transparent);
               --font-size: \(fontSize)px;
+              --preview-scale: 1;
+              --line-height: 1.78;
+              --content-width: 720px;
+              --content-inline-padding: 40px;
+              --content-top-padding: 58px;
+              --content-bottom-padding: 100px;
+              --body-font: "Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif;
+              --heading-font: var(--body-font);
+              --code-font: "SFMono-Regular", "SF Mono", Menlo, Monaco, "PingFang SC", monospace;
             }
-            @media (prefers-color-scheme: dark) {
-              :root {
-                --text: #e6edf3;
-                --muted: #8b949e;
-                --border: #30363d;
-                --code-bg: #161b22;
-                --quote-border: #3d444d;
-              }
+            :root[data-typography-theme="writing"] {
+              --preview-scale: 1.14;
+              --line-height: 1.9;
+              --content-width: 680px;
+              --content-inline-padding: 36px;
+              --content-top-padding: 58px;
+              --content-bottom-padding: 110px;
+              --body-font: "Songti SC", STSong, "Times New Roman", serif;
+              --heading-font: "Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif;
+            }
+            :root[data-typography-theme="minimal"] {
+              --preview-scale: 1.06;
+              --line-height: 1.78;
+              --content-width: 720px;
+              --content-inline-padding: 40px;
+              --content-top-padding: 62px;
+              --content-bottom-padding: 104px;
+            }
+            :root[data-typography-theme="developer"] {
+              --preview-scale: 0.98;
+              --line-height: 1.78;
+              --content-width: 680px;
+              --content-inline-padding: 32px;
+              --content-top-padding: 48px;
+              --content-bottom-padding: 90px;
+              --body-font: "SFMono-Regular", "SF Mono", Menlo, Monaco, "PingFang SC", monospace;
+              --heading-font: var(--body-font);
             }
             html, body {
               margin: 0;
               padding: 0;
               background: var(--bg);
               color: var(--text);
-              font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-              font-size: var(--font-size);
-              line-height: 1.65;
-              height: 100%;
+              min-height: 100%;
+            }
+            body {
+              font-family: var(--body-font);
+              font-size: calc(var(--font-size) * var(--preview-scale));
+              line-height: var(--line-height);
+              letter-spacing: 0.005em;
+            }
+            :root[data-typography-theme="developer"] body {
+              background-image: linear-gradient(
+                color-mix(in srgb, var(--text) 2.2%, transparent) 1px,
+                transparent 1px
+              );
+              background-size: 100% 28px;
+              letter-spacing: -0.01em;
             }
             #content {
-              min-height: calc(100vh - 40px);
-              padding: 20px 24px 40px;
+              box-sizing: border-box;
+              width: min(var(--content-width), 100%);
+              min-height: 100vh;
+              margin: 0 auto;
+              padding: var(--content-top-padding) var(--content-inline-padding) var(--content-bottom-padding);
               outline: none;
             }
             #content:focus { box-shadow: inset 0 0 0 2px var(--focus); }
             h1, h2, h3, h4, h5, h6 {
-              line-height: 1.25;
-              margin: 1.4em 0 0.6em;
-              font-weight: 700;
+              margin: 2em 0 0.72em;
+              color: var(--text);
+              font-family: var(--heading-font);
+              font-weight: 650;
+              letter-spacing: -0.035em;
+              line-height: 1.28;
               scroll-margin-top: 20px;
             }
-            h1 { font-size: 1.9em; }
+            h1 {
+              margin-top: 0;
+              font-size: 2.35em;
+              line-height: 1.18;
+            }
             h2 { font-size: 1.5em; }
             h3 { font-size: 1.25em; }
-            p, ul, ol, pre, blockquote, table { margin: 0 0 1em; }
-            a { color: var(--link); text-decoration: none; }
-            a:hover { text-decoration: underline; }
+            :root[data-typography-theme="developer"] h1 {
+              color: color-mix(in srgb, var(--text) 96%, white);
+              font-size: 2.05em;
+            }
+            :root[data-typography-theme="developer"] h2,
+            :root[data-typography-theme="developer"] h3 {
+              color: color-mix(in srgb, var(--text) 92%, var(--link));
+              letter-spacing: -0.02em;
+            }
+            p, ul, ol, pre, blockquote, table { margin: 0 0 1.35em; }
+            a {
+              color: var(--link);
+              text-decoration-thickness: 1px;
+              text-underline-offset: 4px;
+            }
             code {
-              font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-              font-size: 0.9em;
+              border: 1px solid var(--border);
+              font-family: var(--code-font);
+              font-size: 0.84em;
               background: var(--code-bg);
-              padding: 0.15em 0.4em;
-              border-radius: 6px;
+              padding: 0.13em 0.38em;
+              border-radius: 5px;
             }
             pre {
-              background: var(--code-bg);
               border: 1px solid var(--border);
-              border-radius: 10px;
-              padding: 14px 16px;
+              border-radius: 11px;
+              background: var(--code-bg);
+              padding: 16px 18px;
               overflow: auto;
             }
             pre code {
               background: transparent;
               padding: 0;
               border-radius: 0;
-              font-size: 0.88em;
+              font-size: 0.86em;
             }
             .mermaid-diagram {
               margin: 0 0 1em;
-              padding: 16px;
+              padding: 10px 12px;
               overflow: auto;
               border: 1px solid var(--border);
               border-radius: 10px;
@@ -110,7 +177,8 @@ enum MarkdownHTMLRenderer {
             }
             .mermaid-diagram svg {
               display: block;
-              max-width: 100%;
+              flex: 0 0 auto;
+              max-width: none !important;
               height: auto;
             }
             .mermaid-diagram.is-error pre {
@@ -128,10 +196,12 @@ enum MarkdownHTMLRenderer {
               .mermaid-error-message { color: #ff7b72; }
             }
             blockquote {
-              margin-left: 0;
-              padding: 0.2em 0 0.2em 1em;
+              margin: 1.8em 0;
+              padding: 0.9em 1.25em;
               color: var(--muted);
-              border-left: 4px solid var(--quote-border);
+              border-left: 3px solid var(--quote-border);
+              border-radius: 0 9px 9px 0;
+              background: var(--quote-bg);
             }
             hr {
               border: none;
@@ -146,12 +216,20 @@ enum MarkdownHTMLRenderer {
             }
             th, td {
               border: 1px solid var(--border);
-              padding: 8px 12px;
+              padding: 9px 13px;
             }
             th { background: var(--code-bg); }
             img { max-width: 100%; height: auto; border-radius: 6px; }
-            ul, ol { padding-left: 1.6em; }
-            li { margin: 0.25em 0; }
+            ul, ol { padding-left: 1.5em; }
+            li { margin: 0.42em 0; }
+            li::marker { color: var(--link); }
+            @media (max-width: 620px) {
+              :root {
+                --content-inline-padding: 22px;
+                --content-top-padding: 38px;
+                --content-bottom-padding: 72px;
+              }
+            }
           </style>
         </head>
         <body>
@@ -250,9 +328,71 @@ enum MarkdownHTMLRenderer {
             }
 
             function mermaidTheme() {
-              return window.matchMedia('(prefers-color-scheme: dark)').matches
+              return document.documentElement.dataset.colorScheme === 'dark'
                 ? 'dark'
                 : 'default';
+            }
+
+            function mermaidFontSize() {
+              const value = getComputedStyle(document.documentElement)
+                .getPropertyValue('--font-size')
+                .trim();
+              return value || '14px';
+            }
+
+            function stabilizeMermaidSubgraphOrder(source) {
+              const lines = source.split(/\\r?\\n/);
+              const topLevelIDs = [];
+              let depth = 0;
+
+              lines.forEach(function (line) {
+                const statement = line.split('%%', 1)[0].trim();
+                const declaration = statement.match(
+                  /^subgraph\\s+([A-Za-z_][A-Za-z0-9_-]*)/i
+                );
+                if (/^subgraph(?:\\s|$)/i.test(statement)) {
+                  if (depth === 0 && declaration) {
+                    topLevelIDs.push(declaration[1]);
+                  }
+                  depth += 1;
+                  return;
+                }
+                if (/^end(?:\\s|$)/i.test(statement)) {
+                  depth = Math.max(0, depth - 1);
+                }
+              });
+
+              if (topLevelIDs.length < 2) return source;
+
+              depth = 0;
+              const hasExplicitSubgraphLink = lines.some(function (line) {
+                const statement = line.split('%%', 1)[0].trim();
+                if (/^subgraph(?:\\s|$)/i.test(statement)) {
+                  depth += 1;
+                  return false;
+                }
+                if (/^end(?:\\s|$)/i.test(statement)) {
+                  depth = Math.max(0, depth - 1);
+                  return false;
+                }
+                if (depth !== 0 || !/(?:--|==|~~|-\\.-)/.test(statement)) {
+                  return false;
+                }
+                return topLevelIDs.some(function (id) {
+                  const identifier = new RegExp(
+                    '(^|[^A-Za-z0-9_-])' + id + '([^A-Za-z0-9_-]|$)'
+                  );
+                  return identifier.test(statement);
+                });
+              });
+
+              if (hasExplicitSubgraphLink) return source;
+
+              const orderLinks = topLevelIDs.slice(1).map(function (id, index) {
+                return '    ' + topLevelIDs[index] + ' ~~~ ' + id;
+              });
+              const separator = source.endsWith('\\n') ? '' : '\\n';
+              return source + separator + orderLinks.join('\\n');
             }
 
             function showMermaidError(block, source, error) {
@@ -273,6 +413,18 @@ enum MarkdownHTMLRenderer {
               block.classList.add('is-error');
             }
 
+            function preserveMermaidTextScale(diagram) {
+              const svg = diagram.querySelector('svg');
+              if (!svg || !svg.viewBox || !svg.viewBox.baseVal) return;
+              const naturalWidth = Math.ceil(svg.viewBox.baseVal.width);
+              if (!Number.isFinite(naturalWidth) || naturalWidth <= 0) return;
+              svg.removeAttribute('width');
+              svg.removeAttribute('height');
+              svg.style.width = naturalWidth + 'px';
+              svg.style.height = 'auto';
+              svg.style.maxWidth = 'none';
+            }
+
             let mermaidRenderRevision = 0;
 
             async function renderMermaidDiagrams() {
@@ -291,25 +443,40 @@ enum MarkdownHTMLRenderer {
                 startOnLoad: false,
                 securityLevel: 'strict',
                 theme: mermaidTheme(),
+                fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif',
+                themeVariables: {
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif',
+                  fontSize: mermaidFontSize()
+                },
                 flowchart: {
                   htmlLabels: true,
-                  useMaxWidth: true
+                  useMaxWidth: true,
+                  nodeSpacing: 18,
+                  rankSpacing: 24,
+                  padding: 8,
+                  diagramPadding: 4,
+                  subGraphTitleMargin: {
+                    top: 4,
+                    bottom: 4
+                  }
                 }
               });
 
               for (const block of blocks) {
                 if (revision !== mermaidRenderRevision) return;
                 const source = decodeMermaidSource(block);
+                const renderSource = stabilizeMermaidSubgraphOrder(source);
                 const diagram = document.createElement('div');
                 diagram.className = 'mermaid';
-                diagram.textContent = source;
+                diagram.textContent = renderSource;
                 block.replaceChildren(diagram);
                 block.classList.remove('is-error', 'is-rendered');
 
                 try {
-                  await mermaid.parse(source);
+                  await mermaid.parse(renderSource);
                   await mermaid.run({ nodes: [diagram], suppressErrors: false });
                   if (revision !== mermaidRenderRevision) return;
+                  preserveMermaidTextScale(diagram);
                   block.classList.add('is-rendered');
                 } catch (error) {
                   if (revision !== mermaidRenderRevision) return;
@@ -564,6 +731,17 @@ enum MarkdownHTMLRenderer {
               const value = Number(fontSize);
               if (!Number.isFinite(value)) return;
               document.documentElement.style.setProperty('--font-size', value + 'px');
+              renderMermaidDiagrams();
+            };
+
+            window.setAppearance = function (theme, backgroundColor, foregroundColor, colorScheme) {
+              const root = document.documentElement;
+              root.dataset.typographyTheme = theme;
+              root.dataset.colorScheme = colorScheme;
+              root.style.colorScheme = colorScheme;
+              root.style.setProperty('--bg', backgroundColor);
+              root.style.setProperty('--text', foregroundColor);
+              renderMermaidDiagrams();
             };
 
             window.scrollToHeading = function (id) {
@@ -600,8 +778,6 @@ enum MarkdownHTMLRenderer {
               content.focus();
             };
 
-            const colorScheme = window.matchMedia('(prefers-color-scheme: dark)');
-            colorScheme.addEventListener('change', renderMermaidDiagrams);
             ensureHeadingIDs();
             renderMermaidDiagrams();
             requestAnimationFrame(reportActiveHeading);

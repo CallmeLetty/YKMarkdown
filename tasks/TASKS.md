@@ -212,37 +212,37 @@
    Done at: 2026-08-16T02:57:30Z
 
 20. editor-font-size-shortcuts
-    Id: 19-editor-font-size-shortcuts
-    Scope: Add standard Command+Plus and Command+Minus editor font size controls with persisted 11–22 pt limits
-    Files: Sources/App.swift,Sources/EditorView.swift,Sources/SettingsView.swift,Tests/AppTests.swift,docs/plans/2026-08-13-editor-font-size-shortcuts-design.md
-    Note: Added Format-menu Command+Plus/Command+Minus controls backed by shared persisted 11–22 pt editor font settings, centralized bounds with unit coverage, and verified strict macOS build succeeded; tests and SwiftLint not run per user preference
-    Detail: tasks/details/19-editor-font-size-shortcuts.md
-    Claimed by: CODEX
-    Claimed at: 2026-08-13T03:31:12Z
-    Done by: CODEX
-    Done at: 2026-08-13T03:34:00Z
+   Id: 19-editor-font-size-shortcuts
+   Scope: Add standard Command+Plus and Command+Minus editor font size controls with persisted 11–22 pt limits
+   Files: Sources/App.swift,Sources/EditorView.swift,Sources/SettingsView.swift,Tests/AppTests.swift,docs/plans/2026-08-13-editor-font-size-shortcuts-design.md
+   Note: Added Format-menu Command+Plus/Command+Minus controls backed by shared persisted 11–22 pt editor font settings, centralized bounds with unit coverage, and verified strict macOS build succeeded; tests and SwiftLint not run per user preference
+   Detail: tasks/details/19-editor-font-size-shortcuts.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-13T03:31:12Z
+   Done by: CODEX
+   Done at: 2026-08-13T03:34:00Z
 
 21. sync-preview-font-size
-    Id: 20-sync-preview-font-size
-    Scope: Make Command+Plus and Command+Minus update both source editor and editable Markdown preview without reloading
-    Files: Sources/EditorView.swift,Sources/MarkdownPreviewView.swift,Sources/MarkdownHTMLRenderer.swift,Tests/AppTests.swift,docs/plans/2026-08-13-editor-font-size-shortcuts-design.md
-    Note: Synchronized persisted font size into Markdown preview CSS with live JavaScript updates that preserve page state; strict macOS build succeeded; tests and SwiftLint not run per user preference
-    Detail: tasks/details/20-sync-preview-font-size.md
-    Claimed by: CODEX
-    Claimed at: 2026-08-13T03:36:53Z
-    Done by: CODEX
-    Done at: 2026-08-13T03:38:22Z
+   Id: 20-sync-preview-font-size
+   Scope: Make Command+Plus and Command+Minus update both source editor and editable Markdown preview without reloading
+   Files: Sources/EditorView.swift,Sources/MarkdownPreviewView.swift,Sources/MarkdownHTMLRenderer.swift,Tests/AppTests.swift,docs/plans/2026-08-13-editor-font-size-shortcuts-design.md
+   Note: Synchronized persisted font size into Markdown preview CSS with live JavaScript updates that preserve page state; strict macOS build succeeded; tests and SwiftLint not run per user preference
+   Detail: tasks/details/20-sync-preview-font-size.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-13T03:36:53Z
+   Done by: CODEX
+   Done at: 2026-08-13T03:38:22Z
 
 22. source-folder-organization
-    Id: 21-source-folder-organization
-    Scope: Reorganize Sources into App, Views, Features, and Infrastructure folders without changing behavior
-    Files: Sources,project.yml,docs/plans/2026-08-14-source-folder-organization.md
-    Note: Reorganized Sources into App, Views, Features, and Infrastructure folders; updated Info.plist paths; strict macOS build succeeded; file count and unchanged contents verified; tests and SwiftLint not run per user preference
-    Detail: tasks/details/21-source-folder-organization.md
-    Claimed by: CODEX
-    Claimed at: 2026-08-14T03:07:05Z
-    Done by: CODEX
-    Done at: 2026-08-14T03:09:38Z
+   Id: 21-source-folder-organization
+   Scope: Reorganize Sources into App, Views, Features, and Infrastructure folders without changing behavior
+   Files: Sources,project.yml,docs/plans/2026-08-14-source-folder-organization.md
+   Note: Reorganized Sources into App, Views, Features, and Infrastructure folders; updated Info.plist paths; strict macOS build succeeded; file count and unchanged contents verified; tests and SwiftLint not run per user preference
+   Detail: tasks/details/21-source-folder-organization.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-14T03:07:05Z
+   Done by: CODEX
+   Done at: 2026-08-14T03:09:38Z
 
 23. semantic-bidirectional-scroll-sync
    Id: 23-semantic-bidirectional-scroll-sync
@@ -375,3 +375,36 @@
    Claimed at: 2026-08-28T02:54:10Z
    Done by: CODEX
    Done at: 2026-08-28T03:19:38Z
+
+35. typography-html-demos
+   Id: 35-typography-html-demos
+   Scope: 为温润写作型、现代极简型和程序员编辑器型排版各制作可独立打开的 HTML Demo，并提供统一对比入口
+   Files: demos/typography/index.html,demos/typography/writing.html,demos/typography/minimal.html,demos/typography/developer.html
+   Note: 完成三套独立 HTML 排版 Demo 和统一切换入口；浏览器验证三页加载、方案切换、桌面与 760px 窄窗口布局均正常，独立页面无控制台错误；仅静态 HTML，未运行 App build/test
+   Detail: tasks/details/35-typography-html-demos.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-28T03:42:29Z
+   Done by: CODEX
+   Done at: 2026-08-28T03:50:44Z
+
+36. mermaid-compact-stable-layout
+   Id: 36-mermaid-compact-stable-layout
+   Scope: 统一 Mermaid 与正文的字号和间距，并保持互不相连阶段的源码顺序
+   Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests/AppTests.swift
+   Note: 已统一 Mermaid 与正文动态字号和系统字体，收紧节点/层级/容器间距，为无显式连接的顶层 subgraph 添加仅用于渲染的隐藏顺序约束，并在窄栏保持自然字号改用横向滚动；Swift harness 与 JavaScript 语法检查通过，Chrome 和独立 App WKWebView 真实 QA 验证阶段一在阶段二之前且排版正常；严格构建两次均显示 BUILD SUCCEEDED，但 Xcode beta 写完结果包后自身崩溃返回 133；按本机偏好未运行测试或 SwiftLint
+   Detail: tasks/details/36-mermaid-compact-stable-layout.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-28T03:51:02Z
+   Done by: CODEX
+   Done at: 2026-08-28T04:06:17Z
+
+37. typography-themes
+   Id: 37-typography-themes
+   Scope: 在设置中提供温润写作、现代极简、程序员编辑器三种排版主题，并提供统一作用于编辑区和预览区的自定义背景色与自动文字对比
+   Files: Sources/Infrastructure/DesignSystem/AppTypographyTheme.swift,Sources/Views/SettingsView.swift,Sources/Views/EditorView.swift,Sources/Features/Editor/MarkdownOutline.swift,Sources/Views/MarkdownPreviewView.swift,Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests/AppTests.swift,docs/plans/2026-08-28-typography-themes-design.md,docs/plans/2026-08-28-typography-themes.md
+   Note: 完成三套排版主题、自定义背景与自动对比色；应用及测试目标均编译成功，界面验收通过；按约定未运行测试或 SwiftLint。Xcode beta 在写入 xcresult 后发生已知 Trace/BPT trap，但日志已明确 BUILD SUCCEEDED 与 TEST BUILD SUCCEEDED
+   Detail: tasks/details/37-typography-themes.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-28T04:12:45Z
+   Done by: CODEX
+   Done at: 2026-08-28T06:22:38Z

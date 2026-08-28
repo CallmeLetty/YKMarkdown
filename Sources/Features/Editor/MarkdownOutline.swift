@@ -411,6 +411,9 @@ struct MarkdownScrollSyncRequest: Equatable {
 struct MarkdownSourceEditor: NSViewRepresentable {
     @Binding var text: String
     let fontSize: Double
+    let typographyTheme: AppTypographyTheme
+    let backgroundColor: NSColor
+    let foregroundColor: NSColor
     let headings: [MarkdownHeading]
     let scrollAnchorOffsets: [Int]
     let navigationRequest: HeadingNavigationRequest?
@@ -430,15 +433,11 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         scrollView.hasVerticalScroller = true
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = true
-        scrollView.backgroundColor = .textBackgroundColor
         scrollView.contentView.postsBoundsChangedNotifications = true
 
         let textView = NSTextView()
         textView.delegate = context.coordinator
         textView.string = text
-        textView.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
-        textView.textColor = .textColor
-        textView.backgroundColor = .textBackgroundColor
         textView.drawsBackground = true
         textView.isRichText = false
         textView.importsGraphics = false
@@ -449,7 +448,6 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         textView.isHorizontallyResizable = false
         textView.isVerticallyResizable = true
         textView.autoresizingMask = [.width]
-        textView.textContainerInset = NSSize(width: 12, height: 12)
         textView.minSize = NSSize(width: 0, height: 0)
         textView.maxSize = NSSize(
             width: CGFloat.greatestFiniteMagnitude,
@@ -460,6 +458,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             width: 0,
             height: CGFloat.greatestFiniteMagnitude
         )
+        applyAppearance(to: textView, in: scrollView)
 
         scrollView.documentView = textView
         context.coordinator.textView = textView
@@ -472,7 +471,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         context.coordinator.parent = self
         guard let textView = context.coordinator.textView else { return }
 
-        textView.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        applyAppearance(to: textView, in: scrollView)
         if textView.string != text {
             let selection = textView.selectedRange()
             textView.string = text
@@ -501,6 +500,29 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             context.coordinator.lastSearchNavigationToken = request.token
             context.coordinator.navigateToSearchRange(request.range)
         }
+    }
+
+    private func applyAppearance(to textView: NSTextView, in scrollView: NSScrollView) {
+        let font = typographyTheme.editorFont(size: fontSize)
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineHeightMultiple = typographyTheme.editorLineHeightMultiple
+
+        scrollView.backgroundColor = backgroundColor
+        textView.font = font
+        textView.textColor = foregroundColor
+        textView.backgroundColor = backgroundColor
+        textView.insertionPointColor = foregroundColor
+        textView.defaultParagraphStyle = paragraphStyle
+        textView.textContainerInset = typographyTheme.editorInset
+        textView.typingAttributes = [
+            .font: font,
+            .foregroundColor: foregroundColor,
+            .paragraphStyle: paragraphStyle
+        ]
+        textView.selectedTextAttributes = [
+            .backgroundColor: foregroundColor.withAlphaComponent(0.18),
+            .foregroundColor: foregroundColor
+        ]
     }
 
     @MainActor

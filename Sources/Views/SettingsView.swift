@@ -3,6 +3,9 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage(EditorFontSize.storageKey) private var editorFontSize = EditorFontSize.defaultValue
     @AppStorage("documentOpeningMode") private var documentOpeningMode = DocumentOpeningMode.tabs.rawValue
+    @AppStorage(AppTypographyTheme.storageKey) private var typographyTheme = AppTypographyTheme.defaultTheme.rawValue
+    @AppStorage(AppTypographyAppearance.customBackgroundEnabledKey) private var customBackgroundEnabled = false
+    @AppStorage(AppTypographyAppearance.customBackgroundHexKey) private var customBackgroundHex = AppTypographyAppearance.defaultCustomBackgroundHex
     @AppStorage(AppThemeColor.modeKey) private var themeColorMode = AppThemeColorMode.system.rawValue
     @AppStorage(AppThemeColor.customHexKey) private var themeColorHex = AppThemeColor.defaultCustomHex
     @AppStorage("blogOwner") private var blogOwner = BlogUploadSettings.default.owner
@@ -31,8 +34,32 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("外观") {
-                Picker("主题色", selection: $themeColorMode) {
+            Section("排版") {
+                Picker("排版主题", selection: $typographyTheme) {
+                    ForEach(AppTypographyTheme.allCases) { theme in
+                        Text(theme.title)
+                            .tag(theme.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text(AppTypographyTheme.stored(rawValue: typographyTheme).note)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Toggle("自定义背景色", isOn: $customBackgroundEnabled)
+
+                if customBackgroundEnabled {
+                    ColorPicker("稿纸背景", selection: customBackgroundColor, supportsOpacity: false)
+                }
+
+                Text("背景色同时应用于 Markdown 编辑区和预览区，文字颜色会自动适配。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("强调色") {
+                Picker("颜色来源", selection: $themeColorMode) {
                     ForEach(AppThemeColorMode.allCases) { mode in
                         Text(mode.title)
                             .tag(mode.rawValue)
@@ -41,7 +68,7 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 if AppThemeColorMode.stored(rawValue: themeColorMode) == .custom {
-                    ColorPicker("自定义颜色", selection: customThemeColor, supportsOpacity: false)
+                    ColorPicker("自定义强调色", selection: customThemeColor, supportsOpacity: false)
                 }
 
                 Text("用于工具栏控件、目录高亮和预览链接。")
@@ -97,9 +124,10 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(minWidth: 420, minHeight: 420)
+        .frame(minWidth: 440, minHeight: 560)
         .padding()
         .animation(.easeInOut(duration: 0.18), value: themeColorMode)
+        .animation(.easeInOut(duration: 0.18), value: customBackgroundEnabled)
         .onAppear {
             if KeychainStore.get(account: GitHubBlogUploader.tokenAccount) != nil {
                 tokenSavedMessage = "钥匙串中已有 Token"
@@ -112,6 +140,15 @@ struct SettingsView: View {
             get: { AppThemeColor.customColor(hex: themeColorHex) },
             set: { color in
                 themeColorHex = AppThemeColor.hex(from: color)
+            }
+        )
+    }
+
+    private var customBackgroundColor: Binding<Color> {
+        Binding(
+            get: { AppTypographyAppearance.customBackgroundColor(hex: customBackgroundHex) },
+            set: { color in
+                customBackgroundHex = AppThemeColor.hex(from: color)
             }
         )
     }
