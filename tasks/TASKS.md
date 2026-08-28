@@ -408,3 +408,14 @@
    Claimed at: 2026-08-28T04:12:45Z
    Done by: CODEX
    Done at: 2026-08-28T06:22:38Z
+
+38. single-writing-theme-scroll-performance
+   Id: 38-single-writing-theme-scroll-performance
+   Scope: 仅保留温润写作排版，移除现代极简和程序员主题，并消除滚动同步时重复应用编辑器外观与不必要的 Mermaid 重绘
+   Files: Sources/Infrastructure/DesignSystem/AppTypographyTheme.swift,Sources/Views/SettingsView.swift,Sources/Views/EditorView.swift,Sources/Features/Editor/MarkdownOutline.swift,Sources/Views/MarkdownPreviewView.swift,Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests/AppTests.swift,docs/plans/2026-08-28-single-writing-theme-scroll-performance.md
+   Note: 仅保留温润写作与自定义背景；移除极简/程序员主题及对应 demo；滚动热路径增加编辑器外观缓存，预览仅在明暗变化时重绘 Mermaid；应用与测试目标编译成功，2.28 万字符长文连续滚动 69-134ms；按约定未运行测试或 SwiftLint
+   Detail: tasks/details/38-single-writing-theme-scroll-performance.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-28T06:39:38Z
+   Done by: CODEX
+   Done at: 2026-08-28T06:45:53Z

@@ -1,92 +1,7 @@
 import AppKit
 import SwiftUI
 
-enum AppTypographyTheme: String, CaseIterable, Identifiable {
-    case writing
-    case minimal
-    case developer
-
-    static let storageKey = "typographyTheme"
-    static let defaultTheme = AppTypographyTheme.writing
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .writing:
-            "温润写作"
-        case .minimal:
-            "现代极简"
-        case .developer:
-            "程序员"
-        }
-    }
-
-    var note: String {
-        switch self {
-        case .writing:
-            "宋体预览、舒展行距与偏暖纸张，适合中文长文。"
-        case .minimal:
-            "清爽无衬线与克制层级，适合日常笔记和短文。"
-        case .developer:
-            "暗色等宽、高信息密度，适合技术文档与代码。"
-        }
-    }
-
-    var defaultBackgroundHex: String {
-        switch self {
-        case .writing:
-            "#FFFDF8"
-        case .minimal:
-            "#FFFFFF"
-        case .developer:
-            "#19201E"
-        }
-    }
-
-    var editorLineHeightMultiple: CGFloat {
-        switch self {
-        case .writing:
-            1.55
-        case .minimal:
-            1.45
-        case .developer:
-            1.50
-        }
-    }
-
-    var editorInset: NSSize {
-        switch self {
-        case .writing:
-            NSSize(width: 26, height: 22)
-        case .minimal:
-            NSSize(width: 30, height: 24)
-        case .developer:
-            NSSize(width: 22, height: 18)
-        }
-    }
-
-    func editorFont(size: CGFloat) -> NSFont {
-        switch self {
-        case .writing:
-            NSFont(name: "SFMono-Regular", size: size)
-                ?? .monospacedSystemFont(ofSize: size, weight: .regular)
-        case .minimal:
-            NSFont(name: "AvenirNext-Regular", size: size)
-                ?? .systemFont(ofSize: size, weight: .regular)
-        case .developer:
-            NSFont(name: "SFMono-Regular", size: size)
-                ?? .monospacedSystemFont(ofSize: size, weight: .regular)
-        }
-    }
-
-    static func stored(rawValue: String) -> AppTypographyTheme {
-        AppTypographyTheme(rawValue: rawValue) ?? defaultTheme
-    }
-}
-
 struct ResolvedTypographyAppearance {
-    let theme: AppTypographyTheme
     let backgroundColor: NSColor
     let foregroundColor: NSColor
     let backgroundCSS: String
@@ -98,23 +13,27 @@ struct ResolvedTypographyAppearance {
 enum AppTypographyAppearance {
     static let customBackgroundEnabledKey = "customEditorBackgroundEnabled"
     static let customBackgroundHexKey = "customEditorBackgroundHex"
-    static let defaultCustomBackgroundHex = AppTypographyTheme.writing.defaultBackgroundHex
+    static let defaultBackgroundHex = "#FFFDF8"
+    static let defaultCustomBackgroundHex = defaultBackgroundHex
+    static let editorLineHeightMultiple: CGFloat = 1.55
+    static let editorInset = NSSize(width: 26, height: 22)
+
+    static func editorFont(size: CGFloat) -> NSFont {
+        NSFont(name: "SFMono-Regular", size: size)
+            ?? .monospacedSystemFont(ofSize: size, weight: .regular)
+    }
 
     static func resolve(
-        themeRawValue: String,
         customBackgroundEnabled: Bool,
         customBackgroundHex: String
     ) -> ResolvedTypographyAppearance {
-        let theme = AppTypographyTheme.stored(rawValue: themeRawValue)
-        let fallbackHex = theme.defaultBackgroundHex
-        let requestedHex = customBackgroundEnabled ? customBackgroundHex : fallbackHex
+        let requestedHex = customBackgroundEnabled ? customBackgroundHex : defaultBackgroundHex
         let backgroundColor = AppThemeColor.nsColor(hex: requestedHex)
-            ?? AppThemeColor.nsColor(hex: fallbackHex)
+            ?? AppThemeColor.nsColor(hex: defaultBackgroundHex)
             ?? .textBackgroundColor
         let foregroundColor = contrastingForeground(for: backgroundColor)
 
         return ResolvedTypographyAppearance(
-            theme: theme,
             backgroundColor: backgroundColor,
             foregroundColor: foregroundColor,
             backgroundCSS: AppThemeColor.hex(from: backgroundColor),

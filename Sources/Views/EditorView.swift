@@ -12,7 +12,6 @@ struct EditorView: View {
     @AppStorage("blogContentDirectory") private var blogContentDirectory = BlogUploadSettings.default.contentDirectory
     @AppStorage(EditorFontSize.storageKey) private var editorFontSize = EditorFontSize.defaultValue
     @AppStorage("outlineSidebarVisible") private var isOutlineVisible = true
-    @AppStorage(AppTypographyTheme.storageKey) private var typographyThemeRawValue = AppTypographyTheme.defaultTheme.rawValue
     @AppStorage(AppTypographyAppearance.customBackgroundEnabledKey) private var customBackgroundEnabled = false
     @AppStorage(AppTypographyAppearance.customBackgroundHexKey) private var customBackgroundHex = AppTypographyAppearance.defaultCustomBackgroundHex
     @AppStorage(AppThemeColor.modeKey) private var themeColorMode = AppThemeColorMode.system.rawValue
@@ -236,7 +235,6 @@ struct EditorView: View {
 
     private var typographyAppearance: ResolvedTypographyAppearance {
         AppTypographyAppearance.resolve(
-            themeRawValue: typographyThemeRawValue,
             customBackgroundEnabled: customBackgroundEnabled,
             customBackgroundHex: customBackgroundHex
         )
@@ -284,7 +282,6 @@ struct EditorView: View {
             MarkdownSourceEditor(
                 text: editorTextBinding,
                 fontSize: editorFontSize,
-                typographyTheme: typographyAppearance.theme,
                 backgroundColor: typographyAppearance.backgroundColor,
                 foregroundColor: typographyAppearance.foregroundColor,
                 headings: headings,
@@ -321,7 +318,6 @@ struct EditorView: View {
             scrollSyncRequest: previewScrollSyncRequest,
             themeColorCSS: themeColorCSS,
             fontSize: editorFontSize,
-            typographyTheme: typographyAppearance.theme.rawValue,
             backgroundColorCSS: typographyAppearance.backgroundCSS,
             foregroundColorCSS: typographyAppearance.foregroundCSS,
             colorSchemeCSS: typographyAppearance.colorSchemeCSS,

@@ -59,7 +59,7 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(html.contains("markdownChanged"))
         XCTAssertTrue(html.contains("--font-size: 18.0px"))
         XCTAssertTrue(html.contains("window.setFontSize"))
-        XCTAssertTrue(html.contains("data-typography-theme=\"writing\""))
+        XCTAssertTrue(html.contains("--body-font: \"Songti SC\""))
         XCTAssertTrue(html.contains("window.setAppearance"))
         XCTAssertTrue(html.contains("window.setSourceOffsets"))
         XCTAssertTrue(html.contains("window.scrollToSourceOffset"))
@@ -70,28 +70,26 @@ final class YKMarkdownTests: XCTestCase {
         let html = MarkdownHTMLRenderer.editableDocument(
             bodyHTML: "<p>Hi</p>",
             turndownScript: "function TurndownService(){}",
-            typographyTheme: AppTypographyTheme.developer.rawValue,
             backgroundColorCSS: "#19201E",
             foregroundColorCSS: "#F2F6F4",
             colorSchemeCSS: "dark"
         )
 
-        XCTAssertTrue(html.contains("data-typography-theme=\"developer\""))
         XCTAssertTrue(html.contains("data-color-scheme=\"dark\""))
         XCTAssertTrue(html.contains("--bg: #19201E"))
         XCTAssertTrue(html.contains("--text: #F2F6F4"))
-        XCTAssertTrue(html.contains(":root[data-typography-theme=\"writing\"]"))
-        XCTAssertTrue(html.contains(":root[data-typography-theme=\"minimal\"]"))
-        XCTAssertTrue(html.contains(":root[data-typography-theme=\"developer\"]"))
+        XCTAssertFalse(html.contains("data-typography-theme"))
+        XCTAssertFalse(html.contains("data-typography-theme=\"minimal\""))
+        XCTAssertFalse(html.contains("data-typography-theme=\"developer\""))
+        XCTAssertTrue(html.contains("if (colorSchemeChanged) renderMermaidDiagrams()"))
         XCTAssertTrue(html.contains("document.documentElement.dataset.colorScheme === 'dark'"))
     }
 
-    func testTypographyThemeStoredValueFallsBackToWritingTheme() {
-        XCTAssertEqual(AppTypographyTheme.stored(rawValue: "unknown"), .writing)
-        XCTAssertEqual(AppTypographyTheme.stored(rawValue: "developer"), .developer)
-        XCTAssertEqual(AppTypographyTheme.writing.defaultBackgroundHex, "#FFFDF8")
-        XCTAssertEqual(AppTypographyTheme.minimal.defaultBackgroundHex, "#FFFFFF")
-        XCTAssertEqual(AppTypographyTheme.developer.defaultBackgroundHex, "#19201E")
+    @MainActor
+    func testTypographyUsesWritingDefaults() {
+        XCTAssertEqual(AppTypographyAppearance.defaultBackgroundHex, "#FFFDF8")
+        XCTAssertEqual(AppTypographyAppearance.editorLineHeightMultiple, 1.55)
+        XCTAssertEqual(AppTypographyAppearance.editorInset, NSSize(width: 26, height: 22))
     }
 
     func testEditableDocumentUsesBlockLevelPreviewEdits() {

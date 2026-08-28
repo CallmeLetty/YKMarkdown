@@ -3,7 +3,6 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage(EditorFontSize.storageKey) private var editorFontSize = EditorFontSize.defaultValue
     @AppStorage("documentOpeningMode") private var documentOpeningMode = DocumentOpeningMode.tabs.rawValue
-    @AppStorage(AppTypographyTheme.storageKey) private var typographyTheme = AppTypographyTheme.defaultTheme.rawValue
     @AppStorage(AppTypographyAppearance.customBackgroundEnabledKey) private var customBackgroundEnabled = false
     @AppStorage(AppTypographyAppearance.customBackgroundHexKey) private var customBackgroundHex = AppTypographyAppearance.defaultCustomBackgroundHex
     @AppStorage(AppThemeColor.modeKey) private var themeColorMode = AppThemeColorMode.system.rawValue
@@ -35,15 +34,10 @@ struct SettingsView: View {
             }
 
             Section("排版") {
-                Picker("排版主题", selection: $typographyTheme) {
-                    ForEach(AppTypographyTheme.allCases) { theme in
-                        Text(theme.title)
-                            .tag(theme.rawValue)
-                    }
-                }
-                .pickerStyle(.segmented)
+                Text("温润写作")
+                    .font(.headline)
 
-                Text(AppTypographyTheme.stored(rawValue: typographyTheme).note)
+                Text("宋体预览、舒展行距与偏暖纸张，适合中文长文。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 

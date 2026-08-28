@@ -14,7 +14,6 @@ struct MarkdownPreviewView: NSViewRepresentable {
     var scrollSyncRequest: MarkdownScrollSyncRequest?
     var themeColorCSS: String
     var fontSize: Double
-    var typographyTheme: String
     var backgroundColorCSS: String
     var foregroundColorCSS: String
     var colorSchemeCSS: String
@@ -97,13 +96,11 @@ struct MarkdownPreviewView: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
         struct PreviewAppearance: Equatable {
-            let theme: String
             let backgroundColor: String
             let foregroundColor: String
             let colorScheme: String
 
             init(parent: MarkdownPreviewView) {
-                theme = parent.typographyTheme
                 backgroundColor = parent.backgroundColorCSS
                 foregroundColor = parent.foregroundColorCSS
                 colorScheme = parent.colorSchemeCSS
@@ -148,7 +145,6 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 turndownScript: Self.turndownScript,
                 accentColorCSS: parent.themeColorCSS,
                 fontSize: parent.fontSize,
-                typographyTheme: parent.typographyTheme,
                 backgroundColorCSS: parent.backgroundColorCSS,
                 foregroundColorCSS: parent.foregroundColorCSS,
                 colorSchemeCSS: parent.colorSchemeCSS
@@ -372,7 +368,6 @@ struct MarkdownPreviewView: NSViewRepresentable {
 
         private static func appearanceScript(_ appearance: PreviewAppearance) -> String {
             "window.setAppearance(" + [
-                jsString(appearance.theme),
                 jsString(appearance.backgroundColor),
                 jsString(appearance.foregroundColor),
                 jsString(appearance.colorScheme)

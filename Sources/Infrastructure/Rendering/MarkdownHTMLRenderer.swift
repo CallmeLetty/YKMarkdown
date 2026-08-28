@@ -18,14 +18,13 @@ enum MarkdownHTMLRenderer {
         turndownScript: String,
         accentColorCSS: String = "#0969DA",
         fontSize: Double = 14,
-        typographyTheme: String = "writing",
         backgroundColorCSS: String = "#FFFDF8",
         foregroundColorCSS: String = "#202522",
         colorSchemeCSS: String = "light"
     ) -> String {
         """
         <!DOCTYPE html>
-        <html lang="zh-CN" data-typography-theme="\(typographyTheme)" data-color-scheme="\(colorSchemeCSS)">
+        <html lang="zh-CN" data-color-scheme="\(colorSchemeCSS)">
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -42,17 +41,6 @@ enum MarkdownHTMLRenderer {
               --link: \(accentColorCSS);
               --focus: color-mix(in srgb, \(accentColorCSS) 20%, transparent);
               --font-size: \(fontSize)px;
-              --preview-scale: 1;
-              --line-height: 1.78;
-              --content-width: 720px;
-              --content-inline-padding: 40px;
-              --content-top-padding: 58px;
-              --content-bottom-padding: 100px;
-              --body-font: "Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif;
-              --heading-font: var(--body-font);
-              --code-font: "SFMono-Regular", "SF Mono", Menlo, Monaco, "PingFang SC", monospace;
-            }
-            :root[data-typography-theme="writing"] {
               --preview-scale: 1.14;
               --line-height: 1.9;
               --content-width: 680px;
@@ -61,24 +49,7 @@ enum MarkdownHTMLRenderer {
               --content-bottom-padding: 110px;
               --body-font: "Songti SC", STSong, "Times New Roman", serif;
               --heading-font: "Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif;
-            }
-            :root[data-typography-theme="minimal"] {
-              --preview-scale: 1.06;
-              --line-height: 1.78;
-              --content-width: 720px;
-              --content-inline-padding: 40px;
-              --content-top-padding: 62px;
-              --content-bottom-padding: 104px;
-            }
-            :root[data-typography-theme="developer"] {
-              --preview-scale: 0.98;
-              --line-height: 1.78;
-              --content-width: 680px;
-              --content-inline-padding: 32px;
-              --content-top-padding: 48px;
-              --content-bottom-padding: 90px;
-              --body-font: "SFMono-Regular", "SF Mono", Menlo, Monaco, "PingFang SC", monospace;
-              --heading-font: var(--body-font);
+              --code-font: "SFMono-Regular", "SF Mono", Menlo, Monaco, "PingFang SC", monospace;
             }
             html, body {
               margin: 0;
@@ -92,14 +63,6 @@ enum MarkdownHTMLRenderer {
               font-size: calc(var(--font-size) * var(--preview-scale));
               line-height: var(--line-height);
               letter-spacing: 0.005em;
-            }
-            :root[data-typography-theme="developer"] body {
-              background-image: linear-gradient(
-                color-mix(in srgb, var(--text) 2.2%, transparent) 1px,
-                transparent 1px
-              );
-              background-size: 100% 28px;
-              letter-spacing: -0.01em;
             }
             #content {
               box-sizing: border-box;
@@ -126,15 +89,6 @@ enum MarkdownHTMLRenderer {
             }
             h2 { font-size: 1.5em; }
             h3 { font-size: 1.25em; }
-            :root[data-typography-theme="developer"] h1 {
-              color: color-mix(in srgb, var(--text) 96%, white);
-              font-size: 2.05em;
-            }
-            :root[data-typography-theme="developer"] h2,
-            :root[data-typography-theme="developer"] h3 {
-              color: color-mix(in srgb, var(--text) 92%, var(--link));
-              letter-spacing: -0.02em;
-            }
             p, ul, ol, pre, blockquote, table { margin: 0 0 1.35em; }
             a {
               color: var(--link);
@@ -734,14 +688,14 @@ enum MarkdownHTMLRenderer {
               renderMermaidDiagrams();
             };
 
-            window.setAppearance = function (theme, backgroundColor, foregroundColor, colorScheme) {
+            window.setAppearance = function (backgroundColor, foregroundColor, colorScheme) {
               const root = document.documentElement;
-              root.dataset.typographyTheme = theme;
+              const colorSchemeChanged = root.dataset.colorScheme !== colorScheme;
               root.dataset.colorScheme = colorScheme;
               root.style.colorScheme = colorScheme;
               root.style.setProperty('--bg', backgroundColor);
               root.style.setProperty('--text', foregroundColor);
-              renderMermaidDiagrams();
+              if (colorSchemeChanged) renderMermaidDiagrams();
             };
 
             window.scrollToHeading = function (id) {

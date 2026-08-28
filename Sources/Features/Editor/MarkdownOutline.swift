@@ -411,7 +411,6 @@ struct MarkdownScrollSyncRequest: Equatable {
 struct MarkdownSourceEditor: NSViewRepresentable {
     @Binding var text: String
     let fontSize: Double
-    let typographyTheme: AppTypographyTheme
     let backgroundColor: NSColor
     let foregroundColor: NSColor
     let headings: [MarkdownHeading]
@@ -459,6 +458,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             height: CGFloat.greatestFiniteMagnitude
         )
         applyAppearance(to: textView, in: scrollView)
+        context.coordinator.lastAppliedAppearance = appearanceSignature
 
         scrollView.documentView = textView
         context.coordinator.textView = textView
@@ -471,7 +471,11 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         context.coordinator.parent = self
         guard let textView = context.coordinator.textView else { return }
 
-        applyAppearance(to: textView, in: scrollView)
+        let appearance = appearanceSignature
+        if context.coordinator.lastAppliedAppearance != appearance {
+            applyAppearance(to: textView, in: scrollView)
+            context.coordinator.lastAppliedAppearance = appearance
+        }
         if textView.string != text {
             let selection = textView.selectedRange()
             textView.string = text
@@ -502,10 +506,18 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         }
     }
 
+    private var appearanceSignature: Coordinator.EditorAppearance {
+        Coordinator.EditorAppearance(
+            fontSize: fontSize,
+            backgroundColor: AppThemeColor.hex(from: backgroundColor),
+            foregroundColor: AppThemeColor.hex(from: foregroundColor)
+        )
+    }
+
     private func applyAppearance(to textView: NSTextView, in scrollView: NSScrollView) {
-        let font = typographyTheme.editorFont(size: fontSize)
+        let font = AppTypographyAppearance.editorFont(size: fontSize)
         let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.lineHeightMultiple = typographyTheme.editorLineHeightMultiple
+        paragraphStyle.lineHeightMultiple = AppTypographyAppearance.editorLineHeightMultiple
 
         scrollView.backgroundColor = backgroundColor
         textView.font = font
@@ -513,7 +525,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         textView.backgroundColor = backgroundColor
         textView.insertionPointColor = foregroundColor
         textView.defaultParagraphStyle = paragraphStyle
-        textView.textContainerInset = typographyTheme.editorInset
+        textView.textContainerInset = AppTypographyAppearance.editorInset
         textView.typingAttributes = [
             .font: font,
             .foregroundColor: foregroundColor,
@@ -527,12 +539,19 @@ struct MarkdownSourceEditor: NSViewRepresentable {
 
     @MainActor
     final class Coordinator: NSObject, NSTextViewDelegate {
+        struct EditorAppearance: Equatable {
+            let fontSize: Double
+            let backgroundColor: String
+            let foregroundColor: String
+        }
+
         var parent: MarkdownSourceEditor
         weak var textView: NSTextView?
         weak var scrollView: NSScrollView?
         var lastNavigationToken: UUID?
         var lastScrollSyncToken: UUID?
         var lastSearchNavigationToken: UUID?
+        var lastAppliedAppearance: EditorAppearance?
         private var isApplyingSyncedScroll = false
         private var lastReportedScrollAnchor: Int?
 
