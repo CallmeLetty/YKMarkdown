@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 @testable import YKMarkdown
 
@@ -34,6 +35,20 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(html.contains("print(&quot;hi&quot;)"))
     }
 
+    func testRendererConvertsMermaidCodeBlockToDiagramContainer() {
+        let source = "flowchart TB\n    开始 --> 结束"
+        let markdown = "```mermaid\n\(source)\n```"
+        let encodedSource = Data(source.utf8).base64EncodedString()
+
+        let html = MarkdownHTMLRenderer.bodyHTML(from: markdown)
+
+        XCTAssertTrue(html.contains("class=\"mermaid-diagram\""))
+        XCTAssertTrue(html.contains("data-mermaid-source=\"\(encodedSource)\""))
+        XCTAssertTrue(html.contains("contenteditable=\"false\""))
+        XCTAssertTrue(html.contains("开始 --&gt; 结束"))
+        XCTAssertFalse(html.contains("<pre data-source-offset=\"0\"><code class=\"language-mermaid\">"))
+    }
+
     func testEditableDocumentIncludesContentEditable() {
         let html = MarkdownHTMLRenderer.editableDocument(
             bodyHTML: "<p>Hi</p>",
@@ -58,6 +73,8 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(html.contains("markdownBlockChanged"))
         XCTAssertTrue(html.contains("turndown.addRule('table'"))
         XCTAssertTrue(html.contains("turndown.addRule('heading'"))
+        XCTAssertTrue(html.contains("turndown.addRule('mermaid'"))
+        XCTAssertTrue(html.contains("renderMermaidDiagrams"))
     }
 
     func testPreviewBlockPatchPreservesUneditedMarkdown() {

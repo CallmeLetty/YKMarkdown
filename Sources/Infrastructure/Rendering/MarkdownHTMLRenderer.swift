@@ -95,6 +95,38 @@ enum MarkdownHTMLRenderer {
               border-radius: 0;
               font-size: 0.88em;
             }
+            .mermaid-diagram {
+              margin: 0 0 1em;
+              padding: 16px;
+              overflow: auto;
+              border: 1px solid var(--border);
+              border-radius: 10px;
+              background: color-mix(in srgb, var(--code-bg) 45%, transparent);
+            }
+            .mermaid-diagram .mermaid {
+              display: flex;
+              justify-content: center;
+              min-width: min-content;
+            }
+            .mermaid-diagram svg {
+              display: block;
+              max-width: 100%;
+              height: auto;
+            }
+            .mermaid-diagram.is-error pre {
+              margin-bottom: 0.65em;
+              border: 0;
+              padding: 0;
+              white-space: pre-wrap;
+            }
+            .mermaid-error-message {
+              color: #cf222e;
+              font-size: 0.85em;
+              white-space: pre-wrap;
+            }
+            @media (prefers-color-scheme: dark) {
+              .mermaid-error-message { color: #ff7b72; }
+            }
             blockquote {
               margin-left: 0;
               padding: 0.2em 0 0.2em 1em;
@@ -149,6 +181,16 @@ enum MarkdownHTMLRenderer {
                 return '\\n\\n' + '#'.repeat(level) + ' ' + text + '\\n\\n';
               }
             });
+            turndown.addRule('mermaid', {
+              filter: function (node) {
+                return node.nodeName === 'DIV' && node.classList.contains('mermaid-diagram');
+              },
+              replacement: function (content, node) {
+                const source = decodeMermaidSource(node);
+                const newline = source.endsWith('\\n') ? '' : '\\n';
+                return '\\n\\n```mermaid\\n' + source + newline + '```\\n\\n';
+              }
+            });
             turndown.addRule('table', {
               filter: 'table',
               replacement: function (content, node) {
@@ -193,6 +235,92 @@ enum MarkdownHTMLRenderer {
               if (window.webkit && webkit.messageHandlers && webkit.messageHandlers.bridge) {
                 webkit.messageHandlers.bridge.postMessage(payload);
               }
+            }
+
+            function decodeMermaidSource(block) {
+              try {
+                const binary = atob(block.dataset.mermaidSource || '');
+                const bytes = Uint8Array.from(binary, function (character) {
+                  return character.charCodeAt(0);
+                });
+                return new TextDecoder().decode(bytes);
+              } catch (error) {
+                return '';
+              }
+            }
+
+            function mermaidTheme() {
+              return window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'default';
+            }
+
+            function showMermaidError(block, source, error) {
+              const sourceElement = document.createElement('pre');
+              const codeElement = document.createElement('code');
+              codeElement.textContent = source;
+              sourceElement.appendChild(codeElement);
+
+              const messageElement = document.createElement('div');
+              messageElement.className = 'mermaid-error-message';
+              const message = error && error.message
+                ? error.message
+                : 'Mermaid renderer is unavailable.';
+              messageElement.textContent = 'Mermaid: ' + message;
+
+              block.replaceChildren(sourceElement, messageElement);
+              block.classList.remove('is-rendered');
+              block.classList.add('is-error');
+            }
+
+            let mermaidRenderRevision = 0;
+
+            async function renderMermaidDiagrams() {
+              const revision = ++mermaidRenderRevision;
+              const blocks = Array.from(content.querySelectorAll('.mermaid-diagram'));
+              if (!blocks.length) return;
+
+              if (!window.mermaid) {
+                blocks.forEach(function (block) {
+                  showMermaidError(block, decodeMermaidSource(block), null);
+                });
+                return;
+              }
+
+              mermaid.initialize({
+                startOnLoad: false,
+                securityLevel: 'strict',
+                theme: mermaidTheme(),
+                flowchart: {
+                  htmlLabels: true,
+                  useMaxWidth: true
+                }
+              });
+
+              for (const block of blocks) {
+                if (revision !== mermaidRenderRevision) return;
+                const source = decodeMermaidSource(block);
+                const diagram = document.createElement('div');
+                diagram.className = 'mermaid';
+                diagram.textContent = source;
+                block.replaceChildren(diagram);
+                block.classList.remove('is-error', 'is-rendered');
+
+                try {
+                  await mermaid.parse(source);
+                  await mermaid.run({ nodes: [diagram], suppressErrors: false });
+                  if (revision !== mermaidRenderRevision) return;
+                  block.classList.add('is-rendered');
+                } catch (error) {
+                  if (revision !== mermaidRenderRevision) return;
+                  showMermaidError(block, source, error);
+                }
+              }
+
+              requestAnimationFrame(function () {
+                reportActiveHeading();
+                reportScrollAnchor();
+              });
             }
 
             function currentMarkdown() {
@@ -385,6 +513,7 @@ enum MarkdownHTMLRenderer {
               }
               ensureHeadingIDs();
               suppressEmit = false;
+              renderMermaidDiagrams();
               requestAnimationFrame(reportActiveHeading);
             };
 
@@ -471,7 +600,10 @@ enum MarkdownHTMLRenderer {
               content.focus();
             };
 
+            const colorScheme = window.matchMedia('(prefers-color-scheme: dark)');
+            colorScheme.addEventListener('change', renderMermaidDiagrams);
             ensureHeadingIDs();
+            renderMermaidDiagrams();
             requestAnimationFrame(reportActiveHeading);
           })();
           </script>
@@ -543,11 +675,19 @@ enum MarkdownHTMLRenderer {
                 flushList()
                 if inCodeBlock {
                     let code = escapeHTML(codeLines.joined(separator: "\n"))
-                    let languageClass = codeLanguage.isEmpty ? "" : " class=\"language-\(escapeHTML(codeLanguage))\""
-                    appendBlock(
-                        "<pre\(sourceAttribute(codeBlockOffset))><code\(languageClass)>\(code)</code></pre>",
-                        sourceOffset: codeBlockOffset
-                    )
+                    if codeLanguage.lowercased() == "mermaid" {
+                        let encodedSource = Data(codeLines.joined(separator: "\n").utf8).base64EncodedString()
+                        appendBlock(
+                            "<div class=\"mermaid-diagram\"\(sourceAttribute(codeBlockOffset)) data-mermaid-source=\"\(encodedSource)\" contenteditable=\"false\"><div class=\"mermaid\">\(code)</div></div>",
+                            sourceOffset: codeBlockOffset
+                        )
+                    } else {
+                        let languageClass = codeLanguage.isEmpty ? "" : " class=\"language-\(escapeHTML(codeLanguage))\""
+                        appendBlock(
+                            "<pre\(sourceAttribute(codeBlockOffset))><code\(languageClass)>\(code)</code></pre>",
+                            sourceOffset: codeBlockOffset
+                        )
+                    }
                     codeLines.removeAll(keepingCapacity: true)
                     codeLanguage = ""
                     inCodeBlock = false

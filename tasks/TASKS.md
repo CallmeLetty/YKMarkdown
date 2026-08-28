@@ -364,3 +364,14 @@
    Claimed at: 2026-08-21T04:05:10Z
    Done by: CODEX
    Done at: 2026-08-21T04:05:22Z
+
+34. mermaid-preview-rendering
+   Id: 34-mermaid-preview-rendering
+   Scope: 集成 Mermaid，使 mermaid 围栏代码块在可编辑预览中离线渲染并安全保留源码
+   Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Sources/Infrastructure/Rendering/MermaidScript.swift,Sources/Views/MarkdownPreviewView.swift,Tests/AppTests.swift,docs/plans,tasks/TASKS.md,tasks/details
+   Note: 已内置 Mermaid 11.17.2，实现 mermaid 围栏离线 SVG 渲染、strict 安全配置、深浅色重绘、错误回退及 Turndown 源码保护；真实 QA 验证渲染/实时更新/预览回写均通过；JavaScript 语法与 git diff 检查通过；严格构建两次显示 BUILD SUCCEEDED，但 Xcode beta 在结果包完成后自身崩溃返回 133；按本机偏好未运行测试或 SwiftLint
+   Detail: tasks/details/34-mermaid-preview-rendering.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-28T02:54:10Z
+   Done by: CODEX
+   Done at: 2026-08-28T03:19:38Z

@@ -24,6 +24,13 @@ struct MarkdownPreviewView: NSViewRepresentable {
     func makeNSView(context: Context) -> PreviewWKWebView {
         let userContent = WKUserContentController()
         userContent.add(context.coordinator, name: "bridge")
+        if !MermaidScript.source.isEmpty {
+            userContent.addUserScript(WKUserScript(
+                source: MermaidScript.source,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            ))
+        }
 
         let configuration = WKWebViewConfiguration()
         configuration.userContentController = userContent
