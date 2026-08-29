@@ -281,6 +281,7 @@ struct EditorView: View {
 
             MarkdownSourceEditor(
                 text: editorTextBinding,
+                documentURL: fileURL,
                 fontSize: editorFontSize,
                 backgroundColor: typographyAppearance.backgroundColor,
                 foregroundColor: typographyAppearance.foregroundColor,

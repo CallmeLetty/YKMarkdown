@@ -410,6 +410,7 @@ struct MarkdownScrollSyncRequest: Equatable {
 
 struct MarkdownSourceEditor: NSViewRepresentable {
     @Binding var text: String
+    let documentURL: URL?
     let fontSize: Double
     let backgroundColor: NSColor
     let foregroundColor: NSColor
@@ -434,7 +435,8 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         scrollView.drawsBackground = true
         scrollView.contentView.postsBoundsChangedNotifications = true
 
-        let textView = NSTextView()
+        let textView = MarkdownTextView()
+        textView.documentURL = documentURL
         textView.delegate = context.coordinator
         textView.string = text
         textView.drawsBackground = true
@@ -471,6 +473,8 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         context.coordinator.parent = self
         guard let textView = context.coordinator.textView else { return }
 
+        (textView as? MarkdownTextView)?.documentURL = documentURL
+        textView.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
         let appearance = appearanceSignature
         if context.coordinator.lastAppliedAppearance != appearance {
             applyAppearance(to: textView, in: scrollView)
@@ -679,5 +683,56 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             )
             return layoutManager.characterIndexForGlyph(at: glyphIndex)
         }
+    }
+}
+
+enum DocumentContextMenu {
+    private static let showInFinderTag = 901_001
+
+    /// 在系统文本/WebKit菜单末尾追加当前文档的 Finder 定位入口。
+    static func appendingShowInFinderItem(
+        to menu: NSMenu?,
+        documentURL: URL?,
+        target: AnyObject,
+        action: Selector
+    ) -> NSMenu? {
+        guard let documentURL, documentURL.isFileURL else { return menu }
+        let menu = menu ?? NSMenu()
+
+        if let existingItem = menu.item(withTag: showInFinderTag) {
+            menu.removeItem(existingItem)
+        }
+
+        if !menu.items.isEmpty, menu.items.last?.isSeparatorItem == false {
+            menu.addItem(.separator())
+        }
+
+        let item = NSMenuItem(title: "Show in Finder", action: action, keyEquivalent: "")
+        item.target = target
+        item.tag = showInFinderTag
+        menu.addItem(item)
+        return menu
+    }
+
+    static func showInFinder(documentURL: URL?) {
+        guard let documentURL, documentURL.isFileURL else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([documentURL])
+    }
+}
+
+final class MarkdownTextView: NSTextView {
+    var documentURL: URL?
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        DocumentContextMenu.appendingShowInFinderItem(
+            to: super.menu(for: event),
+            documentURL: documentURL,
+            target: self,
+            action: #selector(showDocumentInFinder)
+        )
+    }
+
+    @objc private func showDocumentInFinder() {
+        DocumentContextMenu.showInFinder(documentURL: documentURL)
     }
 }

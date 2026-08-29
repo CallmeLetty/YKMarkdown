@@ -40,6 +40,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
 
         let webView = PreviewWKWebView(frame: .zero, configuration: configuration)
+        webView.documentURL = baseURL
         webView.setValue(false, forKey: "drawsBackground")
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
@@ -56,6 +57,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
     func updateNSView(_ webView: PreviewWKWebView, context: Context) {
         context.coordinator.parent = self
         context.coordinator.webView = webView
+        webView.documentURL = baseURL
 
         if context.coordinator.baseURL != baseURL {
             context.coordinator.baseURL = baseURL
@@ -432,6 +434,20 @@ enum MarkdownPreviewEditPatch {
 
 final class PreviewWKWebView: WKWebView {
     var onFileURLsDropped: (([URL]) -> Void)?
+    var documentURL: URL?
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        DocumentContextMenu.appendingShowInFinderItem(
+            to: super.menu(for: event),
+            documentURL: documentURL,
+            target: self,
+            action: #selector(showDocumentInFinder)
+        )
+    }
+
+    @objc private func showDocumentInFinder() {
+        DocumentContextMenu.showInFinder(documentURL: documentURL)
+    }
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
         let urls = Self.imageURLs(from: sender.draggingPasteboard)

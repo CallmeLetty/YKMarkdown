@@ -419,3 +419,14 @@
    Claimed at: 2026-08-28T06:39:38Z
    Done by: CODEX
    Done at: 2026-08-28T06:45:53Z
+
+39. add-show-in-finder-context-menu
+   Id: 34-add-show-in-finder-context-menu
+   Scope: Add Show in Finder to source and preview document context menus
+   Files: Sources/Features/Editor/MarkdownOutline.swift Sources/Views/MarkdownPreviewView.swift Sources/Views/EditorView.swift
+   Note: Added Show in Finder to source NSTextView and preview WKWebView context menus while preserving native menu entries; git diff --check passed; xcodebuild/SwiftLint not run per project preference
+   Detail: tasks/details/34-add-show-in-finder-context-menu.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-29T00:46:40Z
+   Done by: CODEX
+   Done at: 2026-08-29T00:49:50Z
