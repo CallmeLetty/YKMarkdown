@@ -474,3 +474,14 @@
    Claimed at: 2026-08-31T00:34:09Z
    Done by: CODEX
    Done at: 2026-08-31T00:36:45Z
+
+44. preview-edit-list-table-spacing
+   Id: 44-preview-edit-list-table-spacing
+   Scope: 修复预览区编辑表格后列表和分隔行 Markdown 被错误重排
+   Files: Sources/Views/MarkdownPreviewView.swift,Sources/Infrastructure/Rendering/TurndownScript.swift,Resources/turndown.js
+   Note: 修复预览区表格编辑退化为全文回写时的格式破坏：缓存编辑块、列表 Turndown 使用单空格 marker、表格回写保留原分隔行；swiftc typecheck 通过，临时回归检查通过；未运行 xcodebuild/SwiftLint
+   Detail: tasks/details/44-preview-edit-list-table-spacing.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-31T23:46:01Z
+   Done by: CODEX
+   Done at: 2026-08-31T23:51:36Z

@@ -280,6 +280,23 @@ enum MarkdownHTMLRenderer {
               filter: ['del', 's', 'strike'],
               replacement: function (content) { return '~~' + content + '~~'; }
             });
+            turndown.addRule('listItem', {
+              filter: 'li',
+              replacement: function (content, node, options) {
+                content = content
+                  .replace(/^\\n+/, '')
+                  .replace(/\\n+$/, '\\n')
+                  .replace(/\\n/gm, '\\n    ');
+                let prefix = options.bulletListMarker + ' ';
+                const parent = node.parentNode;
+                if (parent.nodeName === 'OL') {
+                  const start = parent.getAttribute('start');
+                  const index = Array.prototype.indexOf.call(parent.children, node);
+                  prefix = (start ? Number(start) + index : index + 1) + '. ';
+                }
+                return prefix + content + (node.nextSibling && !/\\n$/.test(content) ? '\\n' : '');
+              }
+            });
             turndown.addRule('heading', {
               filter: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
               replacement: function (content, node) {
@@ -319,6 +336,12 @@ enum MarkdownHTMLRenderer {
                 const markdownRows = [header, separator].concat(bodyRows).map(function (row) {
                   return '| ' + row.join(' | ') + ' |';
                 });
+                const originalSeparator = node.dataset
+                  ? String(node.dataset.markdownTableSeparator || '').trim()
+                  : '';
+                if (isTableSeparator(originalSeparator, header.length)) {
+                  markdownRows[1] = originalSeparator;
+                }
                 return '\\n\\n' + markdownRows.join('\\n') + '\\n\\n';
               }
             });
@@ -337,6 +360,7 @@ enum MarkdownHTMLRenderer {
               block: null,
               requiresFullEmit: false
             };
+            let lastEditingBlock = null;
             const commandKey = 'Meta';
             const commandModifier = 'Meta';
             const linkOpenModeClass = 'is-link-open-mode';
@@ -621,12 +645,52 @@ enum MarkdownHTMLRenderer {
               return node.closest(sourceAnchorSelector);
             }
 
+            function sourceBlockFromNode(node) {
+              if (!node) return null;
+              const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+              if (!element || !element.closest) return null;
+              return element.closest(sourceAnchorSelector);
+            }
+
+            function sourceBlockFromEvent(event) {
+              if (!event) return null;
+              if (event.getTargetRanges) {
+                const ranges = event.getTargetRanges();
+                if (ranges && ranges.length) {
+                  const block = sourceBlockFromNode(ranges[0].startContainer);
+                  if (block) return block;
+                }
+              }
+              if (event.target) {
+                return sourceBlockFromNode(event.target);
+              }
+              return null;
+            }
+
+            function rememberEditingBlock(event) {
+              const block = sourceBlockFromEvent(event) || currentBlock();
+              if (block) {
+                lastEditingBlock = block;
+              }
+            }
+
+            function isTableSeparator(value, columnCount) {
+              if (!value || !value.includes('-')) return false;
+              const cells = value.split('|');
+              if (cells.length && cells[0].trim() === '') cells.shift();
+              if (cells.length && cells[cells.length - 1].trim() === '') cells.pop();
+              if (cells.length !== columnCount) return false;
+              return cells.every(function (cell) {
+                return /^\\s*:?-+:?\\s*$/.test(cell);
+              });
+            }
+
             function markdownForBlock(block) {
               return turndown.turndown(block.outerHTML || '').trim();
             }
 
             function recordPreviewEdit() {
-              const block = currentBlock();
+              const block = currentBlock() || lastEditingBlock;
               if (!block) {
                 pendingPreviewEdit.requiresFullEmit = true;
                 pendingPreviewEdit.block = null;
@@ -668,6 +732,7 @@ enum MarkdownHTMLRenderer {
               }
               pendingPreviewEdit.block = null;
               pendingPreviewEdit.requiresFullEmit = false;
+              lastEditingBlock = null;
             }
 
             function scheduleEmit(shouldRecordBlock) {
@@ -740,6 +805,10 @@ enum MarkdownHTMLRenderer {
               scheduleEmit(true);
               scheduleActiveHeadingReport();
             });
+            content.addEventListener('beforeinput', rememberEditingBlock);
+            content.addEventListener('keydown', rememberEditingBlock);
+            content.addEventListener('mousedown', rememberEditingBlock);
+            content.addEventListener('focusin', rememberEditingBlock);
             content.addEventListener('cut', function () {
               pendingPreviewEdit.requiresFullEmit = true;
               scheduleEmit(false);
@@ -1112,6 +1181,7 @@ enum MarkdownHTMLRenderer {
                 flushList()
                 let tableOffset = lineOffsets[index]
                 let headerCells = splitTableRow(trimmed)
+                let separatorLine = lines[index + 1].trimmingCharacters(in: .whitespaces)
                 index += 2
                 var rows: [[String]] = []
                 while index < lines.count {
@@ -1120,7 +1190,7 @@ enum MarkdownHTMLRenderer {
                     rows.append(splitTableRow(rowLine))
                     index += 1
                 }
-                var table = "<table\(sourceAttribute(tableOffset))><thead><tr>"
+                var table = "<table\(sourceAttribute(tableOffset)) data-markdown-table-separator=\"\(escapeHTML(separatorLine))\"><thead><tr>"
                 table += headerCells.map { "<th>\(renderInline($0))</th>" }.joined()
                 table += "</tr></thead><tbody>"
                 for row in rows {

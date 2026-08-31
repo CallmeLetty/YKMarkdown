@@ -102,8 +102,12 @@ final class YKMarkdownTests: XCTestCase {
 
         XCTAssertTrue(html.contains("markdownBlockChanged"))
         XCTAssertTrue(html.contains("turndown.addRule('table'"))
+        XCTAssertTrue(html.contains("turndown.addRule('listItem'"))
+        XCTAssertTrue(html.contains("prefix = options.bulletListMarker + ' ';"))
         XCTAssertTrue(html.contains("turndown.addRule('heading'"))
         XCTAssertTrue(html.contains("turndown.addRule('mermaid'"))
+        XCTAssertTrue(html.contains("let lastEditingBlock = null"))
+        XCTAssertTrue(html.contains("content.addEventListener('beforeinput', rememberEditingBlock)"))
         XCTAssertTrue(html.contains("renderMermaidDiagrams"))
         XCTAssertTrue(html.contains("fontSize: mermaidFontSize()"))
         XCTAssertTrue(html.contains("nodeSpacing: 18"))
@@ -148,6 +152,47 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(patched.contains("## 1. 技术架构"))
         XCTAssertTrue(patched.contains("| 层级 | 主要类型 | 职责 |"))
         XCTAssertFalse(patched.contains("## 1\\. 技术架构"))
+    }
+
+    func testRendererPreservesTableSeparatorMetadata() {
+        let markdown = """
+        | 时间 | 章节 | 目标 |
+        |---:|---|---|
+        | 00:00-05:00 | 开场 | 建立问题 |
+        """
+
+        let html = MarkdownHTMLRenderer.bodyHTML(from: markdown)
+
+        XCTAssertTrue(html.contains("data-markdown-table-separator=\"|---:|---|---|\""))
+    }
+
+    func testPreviewBlockPatchPreservesTableSeparatorRow() {
+        let original = """
+        ## 3. 45 分钟时间轴
+
+        | 时间 | 章节 | 目标 | 配套观众版 |
+        |---:|---|---|---|
+        | 00:00-05:00 | 开场 | 建立问题 | 观众版 |
+
+        后续内容
+        """
+        let tableOffset = (original as NSString).range(of: "| 时间").location
+        let replacement = """
+        | 时间 | 章节 | 目标 | 配套观众版 |
+        | --- | --- | --- | --- |
+        | 00:00-05:00 | 开场：为什么关键词不够 | 建立问题 | 观众版 |
+        """
+
+        let patched = MarkdownPreviewEditPatch.replacingBlock(
+            in: original,
+            sourceOffset: tableOffset,
+            with: replacement
+        )
+
+        XCTAssertTrue(patched.contains("|---:|---|---|---|"))
+        XCTAssertFalse(patched.contains("| --- | --- | --- | --- |"))
+        XCTAssertTrue(patched.contains("开场：为什么关键词不够"))
+        XCTAssertTrue(patched.contains("后续内容"))
     }
 
     func testWelcomeDocumentIsNonEmptyMarkdown() {

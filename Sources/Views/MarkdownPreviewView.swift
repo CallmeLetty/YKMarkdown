@@ -404,9 +404,15 @@ enum MarkdownPreviewEditPatch {
         let replacementRange = NSRange(location: sourceOffset, length: endOffset - sourceOffset)
         let originalBlock = source.substring(with: replacementRange)
         let separator = trailingNewlineSuffix(in: originalBlock)
-        let replacementCore = blockMarkdown
+        var replacementCore = blockMarkdown
             .replacingOccurrences(of: "\r\n", with: "\n")
             .trimmingCharacters(in: .newlines)
+        if let tableReplacement = preservingTableSeparator(
+            from: originalBlock,
+            in: replacementCore
+        ) {
+            replacementCore = tableReplacement
+        }
 
         let replacement: String
         if replacementCore.isEmpty {
@@ -429,6 +435,50 @@ enum MarkdownPreviewEditPatch {
             }
         }
         return suffix
+    }
+
+    /// 表格内容由 DOM 回转 Markdown 时会规范化分隔行；这里保留用户原有的对齐和紧凑写法。
+    private static func preservingTableSeparator(from originalBlock: String, in replacement: String) -> String? {
+        let originalLines = originalBlock
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map(String.init)
+        var replacementLines = replacement
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map(String.init)
+
+        guard originalLines.count >= 2,
+              replacementLines.count >= 2,
+              isTableSeparator(originalLines[1]),
+              isTableSeparator(replacementLines[1]),
+              splitTableRow(originalLines[1]).count == splitTableRow(replacementLines[1]).count
+        else {
+            return nil
+        }
+
+        replacementLines[1] = originalLines[1]
+        return replacementLines.joined(separator: "\n")
+    }
+
+    private static func isTableSeparator(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.contains("-") else { return false }
+        return splitTableRow(trimmed).allSatisfy { cell in
+            guard !cell.isEmpty else { return false }
+            let markers = cell.trimmingCharacters(in: .whitespaces)
+            return markers.allSatisfy { $0 == "-" || $0 == ":" }
+                && markers.contains("-")
+        }
+    }
+
+    private static func splitTableRow(_ line: String) -> [String] {
+        var cells = line.split(separator: "|", omittingEmptySubsequences: false).map {
+            $0.trimmingCharacters(in: .whitespaces)
+        }
+        if cells.first?.isEmpty == true { cells.removeFirst() }
+        if cells.last?.isEmpty == true { cells.removeLast() }
+        return cells
     }
 }
 
