@@ -117,6 +117,11 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(html.contains("id=\"mermaid-lightbox\""))
         XCTAssertTrue(html.contains("openMermaidLargeView(diagram)"))
         XCTAssertTrue(html.contains("查看大图"))
+        XCTAssertTrue(html.contains("#content a { cursor: text; }"))
+        XCTAssertTrue(html.contains("#content.is-link-open-mode a { cursor: pointer; }"))
+        XCTAssertTrue(html.contains("const commandKey = 'Meta'"))
+        XCTAssertTrue(html.contains("function handleLinkActivation(event)"))
+        XCTAssertTrue(html.contains("content.addEventListener('mousedown'"))
         XCTAssertFalse(html.contains("preserveMermaidTextScale(diagram)"))
     }
 

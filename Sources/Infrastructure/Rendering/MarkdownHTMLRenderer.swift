@@ -235,6 +235,8 @@ enum MarkdownHTMLRenderer {
             }
             th { background: var(--code-bg); }
             img { max-width: 100%; height: auto; border-radius: 6px; }
+            #content a { cursor: text; }
+            #content.is-link-open-mode a { cursor: pointer; }
             ul, ol { padding-left: 1.5em; }
             li { margin: 0.42em 0; }
             li::marker { color: var(--link); }
@@ -335,11 +337,47 @@ enum MarkdownHTMLRenderer {
               block: null,
               requiresFullEmit: false
             };
+            const commandKey = 'Meta';
+            const commandModifier = 'Meta';
+            const linkOpenModeClass = 'is-link-open-mode';
+            const linkSelector = 'a[href]';
+            const isMacCommandPressed = function (event) {
+              return Boolean(
+                event && (
+                  event.metaKey ||
+                  (event.getModifierState && event.getModifierState(commandModifier))
+                )
+              );
+            };
+            let isLinkOpenMode = false;
 
             function post(payload) {
               if (window.webkit && webkit.messageHandlers && webkit.messageHandlers.bridge) {
                 webkit.messageHandlers.bridge.postMessage(payload);
               }
+            }
+
+            function setLinkOpenMode(enabled) {
+              if (isLinkOpenMode === enabled) return;
+              isLinkOpenMode = enabled;
+              content.classList.toggle(linkOpenModeClass, enabled);
+            }
+
+            function anchorFromEvent(event) {
+              if (!event || !event.target) return null;
+              const target = event.target.nodeType === Node.ELEMENT_NODE
+                ? event.target
+                : event.target.parentElement;
+              if (!target || !target.closest) return null;
+              return target.closest(linkSelector);
+            }
+
+            function handleLinkActivation(event) {
+              const anchor = anchorFromEvent(event);
+              if (!anchor || !anchor.href || !isMacCommandPressed(event)) return false;
+              event.preventDefault();
+              post({ type: 'openURL', url: anchor.href });
+              return true;
             }
 
             function decodeMermaidSource(block) {
@@ -733,11 +771,22 @@ enum MarkdownHTMLRenderer {
               }, 0);
             });
 
+            content.addEventListener('mousemove', function (event) {
+              setLinkOpenMode(isMacCommandPressed(event));
+            }, { passive: true });
+
+            content.addEventListener('mouseleave', function () {
+              setLinkOpenMode(false);
+            }, { passive: true });
+
+            content.addEventListener('mousedown', function (event) {
+              handleLinkActivation(event);
+            });
+
             content.addEventListener('click', function (event) {
-              const anchor = event.target.closest('a');
-              if (anchor && anchor.href) {
+              const anchor = anchorFromEvent(event);
+              if (anchor) {
                 event.preventDefault();
-                post({ type: 'openURL', url: anchor.href });
               }
             });
 
@@ -746,6 +795,17 @@ enum MarkdownHTMLRenderer {
               if (event.key === 'Escape' && mermaidLightbox.classList.contains('is-open')) {
                 closeMermaidLargeView();
               }
+              if (event.key === commandKey || isMacCommandPressed(event)) {
+                setLinkOpenMode(true);
+              }
+            });
+            document.addEventListener('keyup', function (event) {
+              if (event.key === commandKey || !isMacCommandPressed(event)) {
+                setLinkOpenMode(false);
+              }
+            });
+            window.addEventListener('blur', function () {
+              setLinkOpenMode(false);
             });
 
             content.addEventListener('dragover', function (event) {

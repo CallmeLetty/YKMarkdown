@@ -463,3 +463,14 @@
    Claimed at: 2026-08-31T00:29:26Z
    Done by: CODEX
    Done at: 2026-08-31T00:31:10Z
+
+43. preview-command-link-open
+   Id: 43-preview-command-link-open
+   Scope: Make editable Markdown preview open links only in Command-click mode while keeping normal clicks editable
+   Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests/AppTests.swift
+   Note: Finished Command-modified preview link activation; ordinary link clicks stay editable; git diff review done; SwiftLint/xcodebuild/tests not run per project preference
+   Detail: tasks/details/43-preview-command-link-open.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-31T00:34:09Z
+   Done by: CODEX
+   Done at: 2026-08-31T00:36:45Z
