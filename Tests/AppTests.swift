@@ -58,6 +58,8 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(html.contains("contenteditable=\"true\""))
         XCTAssertTrue(html.contains("markdownChanged"))
         XCTAssertTrue(html.contains("--font-size: 18.0px"))
+        XCTAssertTrue(html.contains("#content {\n              box-sizing: border-box;\n              width: 100%;"))
+        XCTAssertFalse(html.contains("--content-width: 680px"))
         XCTAssertTrue(html.contains("window.setFontSize"))
         XCTAssertTrue(html.contains("--body-font: \"Songti SC\""))
         XCTAssertTrue(html.contains("window.setAppearance"))
@@ -109,8 +111,13 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(html.contains("padding: 8"))
         XCTAssertTrue(html.contains("stabilizeMermaidSubgraphOrder(source)"))
         XCTAssertTrue(html.contains("topLevelIDs[index] + ' ~~~ ' + id"))
-        XCTAssertTrue(html.contains("preserveMermaidTextScale(diagram)"))
-        XCTAssertTrue(html.contains("svg.style.width = naturalWidth + 'px'"))
+        XCTAssertTrue(html.contains("fitMermaidToPreview(diagram)"))
+        XCTAssertTrue(html.contains("svg.style.width = '100%'"))
+        XCTAssertTrue(html.contains("attachMermaidLargeView(block, diagram)"))
+        XCTAssertTrue(html.contains("id=\"mermaid-lightbox\""))
+        XCTAssertTrue(html.contains("openMermaidLargeView(diagram)"))
+        XCTAssertTrue(html.contains("查看大图"))
+        XCTAssertFalse(html.contains("preserveMermaidTextScale(diagram)"))
     }
 
     func testPreviewBlockPatchPreservesUneditedMarkdown() {

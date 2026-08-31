@@ -435,6 +435,29 @@ enum MarkdownPreviewEditPatch {
 final class PreviewWKWebView: WKWebView {
     var onFileURLsDropped: (([URL]) -> Void)?
     var documentURL: URL?
+    private var contextMenuEventExpiresAt: Date?
+    nonisolated(unsafe) private var contextMenuEventMonitor: Any?
+
+    override init(frame frameRect: NSRect, configuration: WKWebViewConfiguration) {
+        super.init(frame: frameRect, configuration: configuration)
+        installContextMenuObservers()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        if let contextMenuEventMonitor {
+            NSEvent.removeMonitor(contextMenuEventMonitor)
+        }
+        NotificationCenter.default.removeObserver(
+            self,
+            name: NSMenu.didBeginTrackingNotification,
+            object: nil
+        )
+    }
 
     override func menu(for event: NSEvent) -> NSMenu? {
         DocumentContextMenu.appendingShowInFinderItem(
@@ -447,6 +470,57 @@ final class PreviewWKWebView: WKWebView {
 
     @objc private func showDocumentInFinder() {
         DocumentContextMenu.showInFinder(documentURL: documentURL)
+    }
+
+    private func installContextMenuObservers() {
+        contextMenuEventMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown]
+        ) { [weak self] event in
+            self?.prepareForContextMenuIfNeeded(event)
+            return event
+        }
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(menuDidBeginTracking),
+            name: NSMenu.didBeginTrackingNotification,
+            object: nil
+        )
+    }
+
+    @objc private func menuDidBeginTracking(_ notification: Notification) {
+        guard let menu = notification.object as? NSMenu,
+                  let menuEventExpiresAt = self.contextMenuEventExpiresAt,
+                  Date() <= menuEventExpiresAt
+        else {
+            return
+        }
+
+        self.contextMenuEventExpiresAt = nil
+        _ = DocumentContextMenu.appendingShowInFinderItem(
+            to: menu,
+            documentURL: self.documentURL,
+            target: self,
+            action: #selector(showDocumentInFinder)
+        )
+    }
+
+    private func prepareForContextMenuIfNeeded(_ event: NSEvent) {
+        let isContextMenuClick = event.type == .rightMouseDown
+            || event.modifierFlags.contains(.control)
+        guard isContextMenuClick,
+              let documentURL,
+              documentURL.isFileURL,
+              event.window === window
+        else {
+            contextMenuEventExpiresAt = nil
+            return
+        }
+
+        let point = convert(event.locationInWindow, from: nil)
+        contextMenuEventExpiresAt = bounds.contains(point)
+            ? Date().addingTimeInterval(0.75)
+            : nil
     }
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {

@@ -43,7 +43,6 @@ enum MarkdownHTMLRenderer {
               --font-size: \(fontSize)px;
               --preview-scale: 1.14;
               --line-height: 1.9;
-              --content-width: 680px;
               --content-inline-padding: 36px;
               --content-top-padding: 58px;
               --content-bottom-padding: 110px;
@@ -66,9 +65,8 @@ enum MarkdownHTMLRenderer {
             }
             #content {
               box-sizing: border-box;
-              width: min(var(--content-width), 100%);
+              width: 100%;
               min-height: 100vh;
-              margin: 0 auto;
               padding: var(--content-top-padding) var(--content-inline-padding) var(--content-bottom-padding);
               outline: none;
             }
@@ -117,9 +115,10 @@ enum MarkdownHTMLRenderer {
               font-size: 0.86em;
             }
             .mermaid-diagram {
+              position: relative;
               margin: 0 0 1em;
               padding: 10px 12px;
-              overflow: auto;
+              overflow: hidden;
               border: 1px solid var(--border);
               border-radius: 10px;
               background: color-mix(in srgb, var(--code-bg) 45%, transparent);
@@ -127,11 +126,73 @@ enum MarkdownHTMLRenderer {
             .mermaid-diagram .mermaid {
               display: flex;
               justify-content: center;
-              min-width: min-content;
+              width: 100%;
             }
             .mermaid-diagram svg {
               display: block;
-              flex: 0 0 auto;
+              width: 100%;
+              max-width: 100% !important;
+              height: auto;
+            }
+            .mermaid-large-button,
+            .mermaid-lightbox-close {
+              border: 1px solid var(--border);
+              border-radius: 6px;
+              background: color-mix(in srgb, var(--bg) 88%, transparent);
+              color: var(--text);
+              cursor: pointer;
+              font: 500 0.72em var(--heading-font);
+            }
+            .mermaid-large-button {
+              position: absolute;
+              top: 8px;
+              right: 8px;
+              padding: 4px 8px;
+              opacity: 0.82;
+              transition: opacity 0.12s ease;
+            }
+            .mermaid-diagram:hover .mermaid-large-button,
+            .mermaid-large-button:focus-visible {
+              opacity: 1;
+            }
+            .mermaid-lightbox {
+              position: fixed;
+              inset: 0;
+              z-index: 2147483647;
+              display: none;
+              flex-direction: column;
+              background: color-mix(in srgb, var(--bg) 92%, black);
+              color: var(--text);
+            }
+            .mermaid-lightbox.is-open {
+              display: flex;
+            }
+            .mermaid-lightbox-toolbar {
+              display: flex;
+              justify-content: flex-end;
+              padding: 10px 12px;
+              border-bottom: 1px solid var(--border);
+              background: var(--bg);
+            }
+            .mermaid-lightbox-close {
+              padding: 6px 10px;
+            }
+            .mermaid-lightbox-viewport {
+              flex: 1 1 auto;
+              overflow: auto;
+              padding: 24px;
+            }
+            .mermaid-lightbox-canvas {
+              width: max-content;
+              min-width: 100%;
+              min-height: 100%;
+              display: flex;
+              align-items: flex-start;
+              justify-content: center;
+            }
+            .mermaid-lightbox-canvas svg {
+              display: block;
+              width: auto;
               max-width: none !important;
               height: auto;
             }
@@ -188,12 +249,24 @@ enum MarkdownHTMLRenderer {
         </head>
         <body>
           <div id="content" contenteditable="true" spellcheck="true">\(bodyHTML)</div>
+          <div id="mermaid-lightbox" class="mermaid-lightbox" role="dialog" aria-modal="true" aria-hidden="true" contenteditable="false">
+            <div class="mermaid-lightbox-toolbar">
+              <button id="mermaid-lightbox-close" class="mermaid-lightbox-close" type="button">关闭</button>
+            </div>
+            <div id="mermaid-lightbox-viewport" class="mermaid-lightbox-viewport">
+              <div id="mermaid-lightbox-canvas" class="mermaid-lightbox-canvas"></div>
+            </div>
+          </div>
           <script>
           \(turndownScript)
           </script>
           <script>
           (function () {
             const content = document.getElementById('content');
+            const mermaidLightbox = document.getElementById('mermaid-lightbox');
+            const mermaidLightboxCanvas = document.getElementById('mermaid-lightbox-canvas');
+            const mermaidLightboxViewport = document.getElementById('mermaid-lightbox-viewport');
+            const mermaidLightboxClose = document.getElementById('mermaid-lightbox-close');
             const turndown = new TurndownService({
               headingStyle: 'atx',
               codeBlockStyle: 'fenced',
@@ -367,16 +440,66 @@ enum MarkdownHTMLRenderer {
               block.classList.add('is-error');
             }
 
-            function preserveMermaidTextScale(diagram) {
-              const svg = diagram.querySelector('svg');
-              if (!svg || !svg.viewBox || !svg.viewBox.baseVal) return;
+            function mermaidNaturalWidth(svg) {
+              if (!svg || !svg.viewBox || !svg.viewBox.baseVal) return null;
               const naturalWidth = Math.ceil(svg.viewBox.baseVal.width);
-              if (!Number.isFinite(naturalWidth) || naturalWidth <= 0) return;
+              return Number.isFinite(naturalWidth) && naturalWidth > 0 ? naturalWidth : null;
+            }
+
+            function fitMermaidToPreview(diagram) {
+              const svg = diagram.querySelector('svg');
+              if (!svg) return;
               svg.removeAttribute('width');
               svg.removeAttribute('height');
-              svg.style.width = naturalWidth + 'px';
+              svg.style.width = '100%';
               svg.style.height = 'auto';
-              svg.style.maxWidth = 'none';
+              svg.style.maxWidth = '100%';
+            }
+
+            let lastMermaidTrigger = null;
+
+            function closeMermaidLargeView() {
+              mermaidLightbox.classList.remove('is-open');
+              mermaidLightbox.setAttribute('aria-hidden', 'true');
+              mermaidLightboxCanvas.replaceChildren();
+              if (lastMermaidTrigger) {
+                lastMermaidTrigger.focus();
+                lastMermaidTrigger = null;
+              }
+            }
+
+            function openMermaidLargeView(diagram) {
+              const svg = diagram.querySelector('svg');
+              if (!svg) return;
+              const clone = svg.cloneNode(true);
+              const naturalWidth = mermaidNaturalWidth(svg);
+              clone.removeAttribute('width');
+              clone.removeAttribute('height');
+              clone.style.width = naturalWidth ? naturalWidth + 'px' : 'auto';
+              clone.style.height = 'auto';
+              clone.style.maxWidth = 'none';
+              mermaidLightboxCanvas.replaceChildren(clone);
+              mermaidLightbox.classList.add('is-open');
+              mermaidLightbox.setAttribute('aria-hidden', 'false');
+              mermaidLightboxViewport.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+              mermaidLightboxClose.focus();
+            }
+
+            function attachMermaidLargeView(block, diagram) {
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.className = 'mermaid-large-button';
+              button.textContent = '查看大图';
+              button.title = '查看大图';
+              button.setAttribute('aria-label', '查看大图');
+              button.setAttribute('contenteditable', 'false');
+              button.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                lastMermaidTrigger = button;
+                openMermaidLargeView(diagram);
+              });
+              block.appendChild(button);
             }
 
             let mermaidRenderRevision = 0;
@@ -430,7 +553,8 @@ enum MarkdownHTMLRenderer {
                   await mermaid.parse(renderSource);
                   await mermaid.run({ nodes: [diagram], suppressErrors: false });
                   if (revision !== mermaidRenderRevision) return;
-                  preserveMermaidTextScale(diagram);
+                  fitMermaidToPreview(diagram);
+                  attachMermaidLargeView(block, diagram);
                   block.classList.add('is-rendered');
                 } catch (error) {
                   if (revision !== mermaidRenderRevision) return;
@@ -614,6 +738,13 @@ enum MarkdownHTMLRenderer {
               if (anchor && anchor.href) {
                 event.preventDefault();
                 post({ type: 'openURL', url: anchor.href });
+              }
+            });
+
+            mermaidLightboxClose.addEventListener('click', closeMermaidLargeView);
+            document.addEventListener('keydown', function (event) {
+              if (event.key === 'Escape' && mermaidLightbox.classList.contains('is-open')) {
+                closeMermaidLargeView();
               }
             });
 

@@ -430,3 +430,36 @@
    Claimed at: 2026-08-29T00:46:40Z
    Done by: CODEX
    Done at: 2026-08-29T00:49:50Z
+
+40. responsive-preview-mermaid-large-view
+   Id: 40-responsive-preview-mermaid-large-view
+   Scope: Make preview content stretch with the pane and scale Mermaid diagrams to the preview width with a large-view overlay
+   Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests/AppTests.swift
+   Note: Finished responsive preview width and Mermaid preview scaling with large-view overlay; git diff --check and extracted preview JS node --check passed; SwiftLint/xcodebuild/tests not run per project preference
+   Detail: tasks/details/40-responsive-preview-mermaid-large-view.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-29T01:13:02Z
+   Done by: CODEX
+   Done at: 2026-08-29T01:17:32Z
+
+41. document-preview-context-menu-issue
+   Id: 41-document-preview-context-menu-issue
+   Scope: Record the preview context menu Show in Finder issue under docs/问题记录
+   Files: docs/问题记录/预览区右键菜单注入问题记录.md tasks/TASKS.md tasks/details
+   Note: Added preview context menu issue note under docs/问题记录; documentation-only change; git diff --check passed after trimming task file whitespace; no build/test needed
+   Detail: tasks/details/41-document-preview-context-menu-issue.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-30T02:16:55Z
+   Done by: CODEX
+   Done at: 2026-08-30T02:17:54Z
+
+42. consolidate-issue-notes
+   Id: 42-consolidate-issue-notes
+   Scope: Merge docs/问题记录 directory into one docs/问题记录.md and add Swift 6 isolation note
+   Files: docs/问题记录.md docs/问题记录 tasks/TASKS.md tasks/details
+   Note: Consolidated docs/问题记录 into docs/问题记录.md, added Swift 6 isolation issue with original/fixed code snippets, and removed the old issue-notes folder; documentation-only change; no build/test needed
+   Detail: tasks/details/42-consolidate-issue-notes.md
+   Claimed by: CODEX
+   Claimed at: 2026-08-31T00:29:26Z
+   Done by: CODEX
+   Done at: 2026-08-31T00:31:10Z
