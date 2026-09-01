@@ -485,3 +485,14 @@
    Claimed at: 2026-08-31T23:46:01Z
    Done by: CODEX
    Done at: 2026-08-31T23:51:36Z
+
+45. document-preview-table-edit-issue
+   Id: 45-document-preview-table-edit-issue
+   Scope: 记录预览区表格编辑导致列表和表格格式漂移的问题
+   Files: docs/问题记录.md
+   Note: 已在 docs/问题记录.md 记录预览区表格编辑导致列表 marker 空格和表格分隔行被重写的问题；文档-only，未运行构建
+   Detail: tasks/details/45-document-preview-table-edit-issue.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-01T00:00:29Z
+   Done by: CODEX
+   Done at: 2026-09-01T00:01:04Z
