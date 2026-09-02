@@ -496,3 +496,25 @@
    Claimed at: 2026-09-01T00:00:29Z
    Done by: CODEX
    Done at: 2026-09-01T00:01:04Z
+
+46. preview-edit-range-patch-no-full-emit
+   Id: 46-preview-edit-range-patch-no-full-emit
+   Scope: 移除预览编辑的全文 Markdown 回写，改为单块/范围回写
+   Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Sources/Views/MarkdownPreviewView.swift,Tests/AppTests.swift,docs/问题记录.md
+   Note: 移除预览编辑全文 markdownChanged 回写，改为 markdownRangeChanged 范围 patch；剪切、普通粘贴、跨块编辑、插图都走范围回写；清理此前 lastEditingBlock/requiresFullEmit 兜底；swiftc typecheck 和临时回归检查通过；未运行 xcodebuild/SwiftLint
+   Detail: tasks/details/46-preview-edit-range-patch-no-full-emit.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-02T22:38:24Z
+   Done by: CODEX
+   Done at: 2026-09-02T22:44:36Z
+
+47. clarify-preview-edit-doc-history
+   Id: 47-clarify-preview-edit-doc-history
+   Scope: 澄清问题记录中预览编辑三代回写实现的当前/历史关系
+   Files: docs/问题记录.md
+   Note: 已澄清 docs/问题记录.md 中最早全文回写、中间块级回写、当前范围回写三段代码的历史/当前关系；文档-only，未运行构建
+   Detail: tasks/details/47-clarify-preview-edit-doc-history.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-02T22:55:31Z
+   Done by: CODEX
+   Done at: 2026-09-02T22:56:00Z

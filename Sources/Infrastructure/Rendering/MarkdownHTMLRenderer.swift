@@ -4,7 +4,7 @@ enum MarkdownHTMLRenderer {
     static func bodyHTML(from markdown: String) -> String {
         let rendered = renderBody(markdown)
         if rendered.html.isEmpty {
-            return "<p><br></p>"
+            return "<p data-source-offset=\"0\"><br></p>"
         }
         return rendered.html
     }
@@ -357,10 +357,8 @@ enum MarkdownHTMLRenderer {
             let lastReportedSourceOffset = null;
             let suppressScrollAnchorReport = false;
             let pendingPreviewEdit = {
-              block: null,
-              requiresFullEmit: false
+              range: null
             };
-            let lastEditingBlock = null;
             const commandKey = 'Meta';
             const commandModifier = 'Meta';
             const linkOpenModeClass = 'is-link-open-mode';
@@ -630,10 +628,6 @@ enum MarkdownHTMLRenderer {
               });
             }
 
-            function currentMarkdown() {
-              return turndown.turndown(content.innerHTML || '');
-            }
-
             function currentBlock() {
               const selection = window.getSelection();
               let node = selection && selection.anchorNode ? selection.anchorNode : null;
@@ -645,6 +639,12 @@ enum MarkdownHTMLRenderer {
               return node.closest(sourceAnchorSelector);
             }
 
+            function sourceOffsetForBlock(block) {
+              if (!block || !block.dataset) return null;
+              const sourceOffset = Number(block.dataset.sourceOffset);
+              return Number.isFinite(sourceOffset) ? sourceOffset : null;
+            }
+
             function sourceBlockFromNode(node) {
               if (!node) return null;
               const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
@@ -652,25 +652,74 @@ enum MarkdownHTMLRenderer {
               return element.closest(sourceAnchorSelector);
             }
 
-            function sourceBlockFromEvent(event) {
+            function sourceBlockForRangeBoundary(container, offset, preferPrevious) {
+              if (container === content) {
+                const children = Array.from(content.children);
+                if (!children.length) return null;
+                const index = preferPrevious
+                  ? Math.max(0, Math.min(children.length - 1, offset - 1))
+                  : Math.max(0, Math.min(children.length - 1, offset));
+                return sourceBlockFromNode(children[index]);
+              }
+              return sourceBlockFromNode(container);
+            }
+
+            function sourceRangeFromBlocks(startBlock, endBlock) {
+              const startSourceOffset = sourceOffsetForBlock(startBlock);
+              const endSourceOffset = sourceOffsetForBlock(endBlock || startBlock);
+              if (startSourceOffset === null || endSourceOffset === null) return null;
+              return {
+                startSourceOffset: Math.min(startSourceOffset, endSourceOffset),
+                endSourceOffset: Math.max(startSourceOffset, endSourceOffset)
+              };
+            }
+
+            function sourceRangeFromBlock(block) {
+              return sourceRangeFromBlocks(block, block);
+            }
+
+            function mergeSourceRanges(left, right) {
+              if (!left) return right;
+              if (!right) return left;
+              return {
+                startSourceOffset: Math.min(left.startSourceOffset, right.startSourceOffset),
+                endSourceOffset: Math.max(left.endSourceOffset, right.endSourceOffset)
+              };
+            }
+
+            function sourceRangeFromEvent(event) {
               if (!event) return null;
               if (event.getTargetRanges) {
                 const ranges = event.getTargetRanges();
                 if (ranges && ranges.length) {
-                  const block = sourceBlockFromNode(ranges[0].startContainer);
-                  if (block) return block;
+                  let result = null;
+                  for (let index = 0; index < ranges.length; index++) {
+                    const range = ranges[index];
+                    const startBlock = sourceBlockForRangeBoundary(
+                      range.startContainer,
+                      range.startOffset,
+                      false
+                    );
+                    const endBlock = sourceBlockForRangeBoundary(
+                      range.endContainer,
+                      range.endOffset,
+                      true
+                    );
+                    result = mergeSourceRanges(result, sourceRangeFromBlocks(startBlock, endBlock));
+                  }
+                  if (result) return result;
                 }
               }
               if (event.target) {
-                return sourceBlockFromNode(event.target);
+                return sourceRangeFromBlock(sourceBlockFromNode(event.target));
               }
               return null;
             }
 
-            function rememberEditingBlock(event) {
-              const block = sourceBlockFromEvent(event) || currentBlock();
-              if (block) {
-                lastEditingBlock = block;
+            function rememberEditingRange(event) {
+              const range = sourceRangeFromEvent(event) || sourceRangeFromBlock(currentBlock());
+              if (range) {
+                pendingPreviewEdit.range = mergeSourceRanges(pendingPreviewEdit.range, range);
               }
             }
 
@@ -689,50 +738,43 @@ enum MarkdownHTMLRenderer {
               return turndown.turndown(block.outerHTML || '').trim();
             }
 
+            function blocksForSourceRange(range) {
+              const children = Array.from(content.children);
+              const previousIndex = children.reduce(function (result, child, index) {
+                const sourceOffset = sourceOffsetForBlock(child);
+                return sourceOffset !== null && sourceOffset < range.startSourceOffset ? index : result;
+              }, -1);
+              const nextIndex = children.findIndex(function (child) {
+                const sourceOffset = sourceOffsetForBlock(child);
+                return sourceOffset !== null && sourceOffset > range.endSourceOffset;
+              });
+              const endIndex = nextIndex === -1 ? children.length : nextIndex;
+              return children.slice(previousIndex + 1, endIndex);
+            }
+
+            function markdownForRange(range) {
+              return blocksForSourceRange(range)
+                .map(markdownForBlock)
+                .filter(function (markdown) { return markdown.length > 0; })
+                .join('\\n\\n');
+            }
+
             function recordPreviewEdit() {
-              const block = currentBlock() || lastEditingBlock;
-              if (!block) {
-                pendingPreviewEdit.requiresFullEmit = true;
-                pendingPreviewEdit.block = null;
-                return;
-              }
-
-              const sourceOffset = Number(block.dataset.sourceOffset);
-              if (!Number.isFinite(sourceOffset)) {
-                pendingPreviewEdit.requiresFullEmit = true;
-                pendingPreviewEdit.block = null;
-                return;
-              }
-
-              if (
-                pendingPreviewEdit.block &&
-                pendingPreviewEdit.block.sourceOffset !== sourceOffset
-              ) {
-                pendingPreviewEdit.requiresFullEmit = true;
-                pendingPreviewEdit.block = null;
-                return;
-              }
-
-              pendingPreviewEdit.block = {
-                sourceOffset: sourceOffset,
-                markdown: markdownForBlock(block)
-              };
+              const range = pendingPreviewEdit.range || sourceRangeFromBlock(currentBlock());
+              if (range) pendingPreviewEdit.range = range;
             }
 
             function emitMarkdown() {
               if (suppressEmit) return;
-              if (pendingPreviewEdit.requiresFullEmit || !pendingPreviewEdit.block) {
-                post({ type: 'markdownChanged', markdown: currentMarkdown() });
-              } else {
-                post({
-                  type: 'markdownBlockChanged',
-                  sourceOffset: pendingPreviewEdit.block.sourceOffset,
-                  markdown: pendingPreviewEdit.block.markdown
-                });
-              }
-              pendingPreviewEdit.block = null;
-              pendingPreviewEdit.requiresFullEmit = false;
-              lastEditingBlock = null;
+              const range = pendingPreviewEdit.range;
+              pendingPreviewEdit.range = null;
+              if (!range) return;
+              post({
+                type: 'markdownRangeChanged',
+                startSourceOffset: range.startSourceOffset,
+                endSourceOffset: range.endSourceOffset,
+                markdown: markdownForRange(range)
+              });
             }
 
             function scheduleEmit(shouldRecordBlock) {
@@ -805,14 +847,7 @@ enum MarkdownHTMLRenderer {
               scheduleEmit(true);
               scheduleActiveHeadingReport();
             });
-            content.addEventListener('beforeinput', rememberEditingBlock);
-            content.addEventListener('keydown', rememberEditingBlock);
-            content.addEventListener('mousedown', rememberEditingBlock);
-            content.addEventListener('focusin', rememberEditingBlock);
-            content.addEventListener('cut', function () {
-              pendingPreviewEdit.requiresFullEmit = true;
-              scheduleEmit(false);
-            });
+            content.addEventListener('beforeinput', rememberEditingRange);
             window.addEventListener('scroll', function () {
               scheduleActiveHeadingReport();
               scheduleScrollAnchorReport();
@@ -832,12 +867,7 @@ enum MarkdownHTMLRenderer {
               if (hasImage) {
                 event.preventDefault();
                 post({ type: 'pasteImages' });
-                return;
               }
-              pendingPreviewEdit.requiresFullEmit = true;
-              setTimeout(function () {
-                scheduleEmit(false);
-              }, 0);
             });
 
             content.addEventListener('mousemove', function (event) {
@@ -888,7 +918,7 @@ enum MarkdownHTMLRenderer {
 
             window.setBodyHTML = function (html) {
               suppressEmit = true;
-              const htmlValue = html && html.length ? html : '<p><br></p>';
+              const htmlValue = html && html.length ? html : '<p data-source-offset="0"><br></p>';
               if (content.innerHTML !== htmlValue) {
                 content.innerHTML = htmlValue;
               }
@@ -979,12 +1009,12 @@ enum MarkdownHTMLRenderer {
             window.insertImageAtCaret = function (src, alt) {
               const safeSrc = String(src).replace(/"/g, '&quot;');
               const safeAlt = String(alt || '').replace(/"/g, '&quot;');
+              pendingPreviewEdit.range = pendingPreviewEdit.range || sourceRangeFromBlock(currentBlock());
               document.execCommand(
                 'insertHTML',
                 false,
                 '<p><img src="' + safeSrc + '" alt="' + safeAlt + '" /></p>'
               );
-              pendingPreviewEdit.requiresFullEmit = true;
               scheduleEmit(false);
             };
 

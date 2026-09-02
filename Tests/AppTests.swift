@@ -56,7 +56,8 @@ final class YKMarkdownTests: XCTestCase {
             fontSize: 18
         )
         XCTAssertTrue(html.contains("contenteditable=\"true\""))
-        XCTAssertTrue(html.contains("markdownChanged"))
+        XCTAssertTrue(html.contains("markdownRangeChanged"))
+        XCTAssertFalse(html.contains("type: 'markdownChanged'"))
         XCTAssertTrue(html.contains("--font-size: 18.0px"))
         XCTAssertTrue(html.contains("#content {\n              box-sizing: border-box;\n              width: 100%;"))
         XCTAssertFalse(html.contains("--content-width: 680px"))
@@ -66,6 +67,12 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(html.contains("window.setSourceOffsets"))
         XCTAssertTrue(html.contains("window.scrollToSourceOffset"))
         XCTAssertFalse(html.contains("scrollPercentage"))
+    }
+
+    func testEmptyPreviewBodyHasEditableSourceOffset() {
+        let html = MarkdownHTMLRenderer.bodyHTML(from: "")
+
+        XCTAssertEqual(html, "<p data-source-offset=\"0\"><br></p>")
     }
 
     func testEditableDocumentIncludesResolvedTypographyAppearance() {
@@ -100,14 +107,17 @@ final class YKMarkdownTests: XCTestCase {
             turndownScript: "function TurndownService(){}"
         )
 
-        XCTAssertTrue(html.contains("markdownBlockChanged"))
+        XCTAssertTrue(html.contains("markdownRangeChanged"))
+        XCTAssertFalse(html.contains("markdownBlockChanged"))
+        XCTAssertFalse(html.contains("function currentMarkdown()"))
+        XCTAssertFalse(html.contains("requiresFullEmit"))
         XCTAssertTrue(html.contains("turndown.addRule('table'"))
         XCTAssertTrue(html.contains("turndown.addRule('listItem'"))
         XCTAssertTrue(html.contains("prefix = options.bulletListMarker + ' ';"))
         XCTAssertTrue(html.contains("turndown.addRule('heading'"))
         XCTAssertTrue(html.contains("turndown.addRule('mermaid'"))
-        XCTAssertTrue(html.contains("let lastEditingBlock = null"))
-        XCTAssertTrue(html.contains("content.addEventListener('beforeinput', rememberEditingBlock)"))
+        XCTAssertTrue(html.contains("function sourceRangeFromEvent(event)"))
+        XCTAssertTrue(html.contains("content.addEventListener('beforeinput', rememberEditingRange)"))
         XCTAssertTrue(html.contains("renderMermaidDiagrams"))
         XCTAssertTrue(html.contains("fontSize: mermaidFontSize()"))
         XCTAssertTrue(html.contains("nodeSpacing: 18"))
@@ -193,6 +203,61 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertFalse(patched.contains("| --- | --- | --- | --- |"))
         XCTAssertTrue(patched.contains("开场：为什么关键词不够"))
         XCTAssertTrue(patched.contains("后续内容"))
+    }
+
+    func testPreviewRangePatchReplacesOnlySelectedBlocks() {
+        let original = """
+        # 标题
+
+        旧段落
+
+        - 保留列表
+
+        尾部
+        """
+        let paragraphOffset = (original as NSString).range(of: "旧段落").location
+        let listOffset = (original as NSString).range(of: "- 保留列表").location
+
+        let patched = MarkdownPreviewEditPatch.replacingRange(
+            in: original,
+            startSourceOffset: paragraphOffset,
+            endSourceOffset: listOffset,
+            with: "新段落"
+        )
+
+        XCTAssertTrue(patched.contains("# 标题"))
+        XCTAssertTrue(patched.contains("新段落"))
+        XCTAssertFalse(patched.contains("旧段落"))
+        XCTAssertFalse(patched.contains("- 保留列表"))
+        XCTAssertTrue(patched.contains("尾部"))
+    }
+
+    func testPreviewRangePatchIgnoresUnknownOffsets() {
+        let original = """
+        # 标题
+
+        正文
+        """
+
+        let patched = MarkdownPreviewEditPatch.replacingRange(
+            in: original,
+            startSourceOffset: 999,
+            endSourceOffset: 999,
+            with: "错误替换"
+        )
+
+        XCTAssertEqual(patched, original)
+    }
+
+    func testPreviewRangePatchSupportsEmptyDocument() {
+        let patched = MarkdownPreviewEditPatch.replacingRange(
+            in: "",
+            startSourceOffset: 0,
+            endSourceOffset: 0,
+            with: "第一段"
+        )
+
+        XCTAssertEqual(patched, "第一段\n")
     }
 
     func testWelcomeDocumentIsNonEmptyMarkdown() {

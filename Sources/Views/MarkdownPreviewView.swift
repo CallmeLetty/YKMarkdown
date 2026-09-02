@@ -234,23 +234,15 @@ struct MarkdownPreviewView: NSViewRepresentable {
             else { return }
 
             switch type {
-            case "markdownChanged":
-                guard let markdown = body["markdown"] as? String else { return }
-                let normalized = Self.normalizeMarkdown(markdown)
-                guard normalized != lastAppliedMarkdown else { return }
-                isUpdatingFromPreview = true
-                lastAppliedMarkdown = normalized
-                parent.onMarkdownChange(normalized)
-                updateSourceOffsets(for: normalized)
-                isUpdatingFromPreview = false
-
-            case "markdownBlockChanged":
-                guard let sourceOffset = body["sourceOffset"] as? NSNumber,
+            case "markdownRangeChanged":
+                guard let startSourceOffset = body["startSourceOffset"] as? NSNumber,
+                      let endSourceOffset = body["endSourceOffset"] as? NSNumber,
                       let markdown = body["markdown"] as? String
                 else { return }
-                let patched = MarkdownPreviewEditPatch.replacingBlock(
+                let patched = MarkdownPreviewEditPatch.replacingRange(
                     in: lastAppliedMarkdown,
-                    sourceOffset: sourceOffset.intValue,
+                    startSourceOffset: startSourceOffset.intValue,
+                    endSourceOffset: endSourceOffset.intValue,
                     with: markdown
                 )
                 let normalized = Self.normalizeMarkdown(patched)
@@ -387,28 +379,57 @@ enum MarkdownPreviewEditPatch {
         sourceOffset: Int,
         with blockMarkdown: String
     ) -> String {
+        replacingRange(
+            in: markdown,
+            startSourceOffset: sourceOffset,
+            endSourceOffset: sourceOffset,
+            with: blockMarkdown
+        )
+    }
+
+    /// 将预览中受影响的顶层块范围回写到原文；无法确认范围时保持原文，避免整篇 Markdown 被重排。
+    static func replacingRange(
+        in markdown: String,
+        startSourceOffset: Int,
+        endSourceOffset: Int,
+        with rangeMarkdown: String
+    ) -> String {
         let source = markdown as NSString
         let length = source.length
-        guard sourceOffset >= 0, sourceOffset < length else {
+        let lowerSourceOffset = min(startSourceOffset, endSourceOffset)
+        let upperSourceOffset = max(startSourceOffset, endSourceOffset)
+        if length == 0, lowerSourceOffset == 0, upperSourceOffset == 0 {
+            let replacement = rangeMarkdown
+                .replacingOccurrences(of: "\r\n", with: "\n")
+                .trimmingCharacters(in: .newlines)
+            return replacement.isEmpty ? "" : replacement + "\n"
+        }
+        guard lowerSourceOffset >= 0, lowerSourceOffset < length else {
             return markdown
         }
 
         let offsets = MarkdownHTMLRenderer.sourceOffsets(from: markdown)
             .filter { $0 >= 0 && $0 < length }
             .sorted()
-        guard offsets.contains(sourceOffset) else {
+        guard let startIndex = offsets.firstIndex(of: lowerSourceOffset),
+              let endIndex = offsets.firstIndex(of: upperSourceOffset),
+              startIndex <= endIndex
+        else {
             return markdown
         }
 
-        let endOffset = offsets.first { $0 > sourceOffset } ?? length
-        let replacementRange = NSRange(location: sourceOffset, length: endOffset - sourceOffset)
-        let originalBlock = source.substring(with: replacementRange)
-        let separator = trailingNewlineSuffix(in: originalBlock)
-        var replacementCore = blockMarkdown
+        let replacementEndOffset = endIndex + 1 < offsets.count ? offsets[endIndex + 1] : length
+        let replacementRange = NSRange(
+            location: lowerSourceOffset,
+            length: replacementEndOffset - lowerSourceOffset
+        )
+        let originalRange = source.substring(with: replacementRange)
+        let separator = trailingNewlineSuffix(in: originalRange)
+        var replacementCore = rangeMarkdown
             .replacingOccurrences(of: "\r\n", with: "\n")
             .trimmingCharacters(in: .newlines)
-        if let tableReplacement = preservingTableSeparator(
-            from: originalBlock,
+        if let tableReplacement = preservingTableSeparators(
+            from: originalRange,
             in: replacementCore
         ) {
             replacementCore = tableReplacement
@@ -438,7 +459,7 @@ enum MarkdownPreviewEditPatch {
     }
 
     /// 表格内容由 DOM 回转 Markdown 时会规范化分隔行；这里保留用户原有的对齐和紧凑写法。
-    private static func preservingTableSeparator(from originalBlock: String, in replacement: String) -> String? {
+    private static func preservingTableSeparators(from originalBlock: String, in replacement: String) -> String? {
         let originalLines = originalBlock
             .replacingOccurrences(of: "\r\n", with: "\n")
             .split(separator: "\n", omittingEmptySubsequences: false)
@@ -448,17 +469,33 @@ enum MarkdownPreviewEditPatch {
             .split(separator: "\n", omittingEmptySubsequences: false)
             .map(String.init)
 
-        guard originalLines.count >= 2,
-              replacementLines.count >= 2,
-              isTableSeparator(originalLines[1]),
-              isTableSeparator(replacementLines[1]),
-              splitTableRow(originalLines[1]).count == splitTableRow(replacementLines[1]).count
-        else {
-            return nil
+        let originalSeparators = tableSeparators(in: originalLines)
+        let replacementSeparators = tableSeparators(in: replacementLines)
+        var didReplaceSeparator = false
+
+        for index in 0..<min(originalSeparators.count, replacementSeparators.count) {
+            let original = originalSeparators[index]
+            let replacement = replacementSeparators[index]
+            if original.columnCount == replacement.columnCount {
+                replacementLines[replacement.lineIndex] = original.line
+                didReplaceSeparator = true
+            }
         }
 
-        replacementLines[1] = originalLines[1]
-        return replacementLines.joined(separator: "\n")
+        return didReplaceSeparator ? replacementLines.joined(separator: "\n") : nil
+    }
+
+    private static func tableSeparators(in lines: [String]) -> [(lineIndex: Int, line: String, columnCount: Int)] {
+        guard lines.count >= 2 else { return [] }
+        var separators: [(lineIndex: Int, line: String, columnCount: Int)] = []
+        for index in 1..<lines.count where isTableSeparator(lines[index]) {
+            separators.append((
+                lineIndex: index,
+                line: lines[index],
+                columnCount: splitTableRow(lines[index]).count
+            ))
+        }
+        return separators
     }
 
     private static func isTableSeparator(_ line: String) -> Bool {
