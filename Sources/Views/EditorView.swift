@@ -24,6 +24,7 @@ struct EditorView: View {
     @State private var previewScrollSyncRequest: MarkdownScrollSyncRequest?
     @State private var scrollAnchorOffsets: [Int] = []
     @State private var insertImageRequest: MarkdownPreviewView.InsertImageRequest?
+    @State private var lastPreviewSourceOffset: Int?
     @State private var showSaveFirstAlert = false
     @State private var saveFirstMessage = "插入图片前，请先保存 Markdown 文件。"
     @State private var alertMessage = ""
@@ -207,6 +208,14 @@ struct EditorView: View {
                 return
             }
         }
+        .onChange(of: layout) { _, _ in
+            if layout == .editorOnly { return }
+            guard let sourceOffset = lastPreviewSourceOffset else { return }
+            previewScrollSyncRequest = MarkdownScrollSyncRequest(
+                token: UUID(),
+                sourceOffset: sourceOffset
+            )
+        }
         .onChange(of: searchQuery) { _, _ in
             selectFirstSearchMatchIfNeeded()
         }
@@ -323,7 +332,10 @@ struct EditorView: View {
             foregroundColorCSS: typographyAppearance.foregroundCSS,
             colorSchemeCSS: typographyAppearance.colorSchemeCSS,
             onActiveHeadingChange: setActiveHeading,
-            onScrollAnchorChange: syncEditorScroll
+            onScrollAnchorChange: { sourceOffset in
+                lastPreviewSourceOffset = sourceOffset
+                syncEditorScroll(to: sourceOffset)
+            }
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(typographyBackgroundColor)
