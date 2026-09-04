@@ -518,3 +518,25 @@
    Claimed at: 2026-09-02T22:55:31Z
    Done by: CODEX
    Done at: 2026-09-02T22:56:00Z
+
+48. fix-conflict-resolution-window-crash
+   Id: 48-fix-conflict-resolution-window-crash
+   Scope: 修复解决文档冲突时窗口配置弱引用触发崩溃
+   Files: Sources/Features/Editor/DocumentOpeningMode.swift,Sources/Features/Editor/DocumentSearch.swift
+   Note: 已修复解决冲突时窗口配置写入 weak NSWindow 导致的崩溃：DocumentWindowConfigurator 改为记录 ObjectIdentifier 并按窗口/打开模式变化才配置；DocumentSearchWindowReader 同步改为身份缓存，避免窗口关闭期间重复 weak 上报；git diff --check 通过；按项目规则未运行 xcodebuild/测试/SwiftLint
+   Detail: tasks/details/48-fix-conflict-resolution-window-crash.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-04T15:42:14Z
+   Done by: CODEX
+   Done at: 2026-09-04T15:46:51Z
+
+49. document-conflict-window-crash
+   Id: 49-document-conflict-window-crash
+   Scope: 将解决冲突时窗口弱引用崩溃记录到问题记录
+   Files: docs/问题记录.md,tasks/TASKS.md,tasks/details
+   Note: 已在 docs/问题记录.md 追加解决冲突时窗口 weak NSWindow 崩溃记录；包含触发栈、生命周期根因、ObjectIdentifier 修复方式和后续注意；文档-only，git diff --check 通过；未运行构建/测试/SwiftLint
+   Detail: tasks/details/49-document-conflict-window-crash.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-04T15:48:42Z
+   Done by: CODEX
+   Done at: 2026-09-04T15:49:25Z

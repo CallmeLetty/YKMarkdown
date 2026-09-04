@@ -240,7 +240,8 @@ struct DocumentSearchWindowReader: NSViewRepresentable {
     final class WindowReaderView: NSView {
         var onWindowChange: (@MainActor (NSWindow?) -> Void)?
         var onWindowClose: (@MainActor () -> Void)?
-        private weak var observedWindow: NSWindow?
+        private var observedWindowID: ObjectIdentifier?
+        private var reportedWindowID: ObjectIdentifier?
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
@@ -249,36 +250,39 @@ struct DocumentSearchWindowReader: NSViewRepresentable {
         }
 
         deinit {
-            if let observedWindow {
-                NotificationCenter.default.removeObserver(
-                    self,
-                    name: NSWindow.willCloseNotification,
-                    object: observedWindow
-                )
-            }
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSWindow.willCloseNotification,
+                object: nil
+            )
         }
 
         func reportWindow() {
-            onWindowChange?(window)
+            guard let currentWindow = window else { return }
+            let currentWindowID = ObjectIdentifier(currentWindow)
+            guard reportedWindowID != currentWindowID else { return }
+            reportedWindowID = currentWindowID
+            onWindowChange?(currentWindow)
         }
 
         private func updateWindowObservation() {
-            if let observedWindow {
-                NotificationCenter.default.removeObserver(
-                    self,
-                    name: NSWindow.willCloseNotification,
-                    object: observedWindow
-                )
-            }
-            observedWindow = window
-            if let window {
-                NotificationCenter.default.addObserver(
-                    self,
-                    selector: #selector(windowWillClose),
-                    name: NSWindow.willCloseNotification,
-                    object: window
-                )
-            }
+            guard let currentWindow = window else { return }
+            let currentWindowID = ObjectIdentifier(currentWindow)
+            guard observedWindowID != currentWindowID else { return }
+
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSWindow.willCloseNotification,
+                object: nil
+            )
+            observedWindowID = currentWindowID
+            // 只缓存窗口身份，避免窗口销毁中写 weak 引用导致 ObjC abort。
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(windowWillClose),
+                name: NSWindow.willCloseNotification,
+                object: currentWindow
+            )
         }
 
         @objc private func windowWillClose() {

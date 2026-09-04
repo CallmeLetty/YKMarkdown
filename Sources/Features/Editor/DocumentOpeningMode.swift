@@ -68,13 +68,13 @@ struct DocumentWindowConfigurator: NSViewRepresentable {
     private func configure(window: NSWindow?, coordinator: Coordinator) {
         guard let window else { return }
         let mode = DocumentOpeningMode.stored(rawValue: documentOpeningMode)
+        let windowID = ObjectIdentifier(window)
+        let isNewWindow = coordinator.updateWindowIdentity(windowID)
         // 同一个标识的文档窗口才能被 AppKit 自动组合成标签页。
-        window.tabbingIdentifier = Self.documentTabbingIdentifier
-        window.tabbingMode = mode.tabbingMode
-
-        if coordinator.window !== window {
-            coordinator.window = window
-            coordinator.didAttemptInitialTabbing = false
+        if isNewWindow || coordinator.configuredMode != mode {
+            window.tabbingIdentifier = Self.documentTabbingIdentifier
+            window.tabbingMode = mode.tabbingMode
+            coordinator.configuredMode = mode
         }
 
         if mode == .tabs, !coordinator.didAttemptInitialTabbing {
@@ -99,8 +99,18 @@ struct DocumentWindowConfigurator: NSViewRepresentable {
 
     @MainActor
     final class Coordinator {
-        weak var window: NSWindow?
+        private(set) var configuredWindowID: ObjectIdentifier?
+        var configuredMode: DocumentOpeningMode?
         var didAttemptInitialTabbing = false
+
+        /// 只记录窗口身份，避免在窗口销毁过程中写入 weak NSWindow 触发 ObjC abort。
+        func updateWindowIdentity(_ id: ObjectIdentifier) -> Bool {
+            guard configuredWindowID != id else { return false }
+            configuredWindowID = id
+            configuredMode = nil
+            didAttemptInitialTabbing = false
+            return true
+        }
     }
 
     @MainActor
