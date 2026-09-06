@@ -540,3 +540,14 @@
    Claimed at: 2026-09-04T15:48:42Z
    Done by: CODEX
    Done at: 2026-09-04T15:49:25Z
+
+52. protect-inline-code
+   Id: 52-protect-inline-code
+   Scope: 修复行内代码内容被后续 Markdown 格式规则再次解析
+   Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests/AppTests.swift
+   Note: 已隔离并还原行内代码，保留下划线及其他格式标记；补充回归用例；未编译、未运行测试或 SwiftLint
+   Detail: tasks/details/52-protect-inline-code.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-06T03:12:06Z
+   Done by: CODEX
+   Done at: 2026-09-06T03:12:37Z

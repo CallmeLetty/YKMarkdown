@@ -9,6 +9,21 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(html.contains("<strong>world</strong>"))
     }
 
+    // 代码内的格式标记必须原样保留，代码外的格式仍正常生效。
+    func testRendererPreservesInlineCodeContents() {
+        let markdown = "😀 `query_embedding_ms` `engine_ms` `**bold** _italic_ ~~deleted~~ [link](url) ![image](url)` `<tag>&` **外部加粗**"
+        let html = MarkdownHTMLRenderer.bodyHTML(from: markdown)
+
+        XCTAssertEqual(html, "<p data-source-offset=\"0\">😀 <code>query_embedding_ms</code> <code>engine_ms</code> <code>**bold** _italic_ ~~deleted~~ [link](url) ![image](url)</code> <code>&lt;tag&gt;&amp;</code> <strong>外部加粗</strong></p>")
+    }
+
+    // 外层强调和链接可以包含代码，代码内容不能反过来参与外层解析。
+    func testRendererSupportsInlineCodeInsideFormatting() {
+        let html = MarkdownHTMLRenderer.bodyHTML(from: "**`query_embedding_ms`** [`engine_ms`](https://example.com)")
+
+        XCTAssertEqual(html, "<p data-source-offset=\"0\"><strong><code>query_embedding_ms</code></strong> <a href=\"https://example.com\"><code>engine_ms</code></a></p>")
+    }
+
     func testRendererAddsSemanticSourceOffsetsWithoutScrollPercentages() {
         let markdown = "# Title\n\nParagraph\n\n```swift\nx\n```"
         let html = MarkdownHTMLRenderer.bodyHTML(from: markdown)

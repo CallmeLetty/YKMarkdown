@@ -1321,11 +1321,23 @@ enum MarkdownHTMLRenderer {
     private static func renderInline(_ text: String) -> String {
         var result = escapeHTML(text)
 
-        result = replacePattern(
-            in: result,
-            pattern: "`([^`]+)`",
-            template: "<code>$1</code>"
-        )
+        // 先隐藏代码内容，避免后续强调、链接等规则再次解析；前缀必须与原文无冲突。
+        var codeTokenPrefix = "\u{001F}code"
+        while result.contains(codeTokenPrefix) {
+            codeTokenPrefix += "\u{001F}"
+        }
+        var codeFragments: [(token: String, html: String)] = []
+        if let regex = try? NSRegularExpression(pattern: "`([^`]+)`") {
+            let source = result as NSString
+            let matches = regex.matches(in: result, range: NSRange(location: 0, length: source.length))
+            // 从后往前替换，保持尚未处理的 UTF-16 区间有效。
+            for (index, match) in matches.enumerated().reversed() {
+                let token = "\(codeTokenPrefix)\(index)\u{001F}"
+                let code = source.substring(with: match.range(at: 1))
+                codeFragments.append((token: token, html: "<code>\(code)</code>"))
+                result = (result as NSString).replacingCharacters(in: match.range, with: token)
+            }
+        }
         result = replacePattern(
             in: result,
             pattern: #"!\[([^\]]*)\]\(([^)\s]+)\)"#,
@@ -1362,6 +1374,9 @@ enum MarkdownHTMLRenderer {
             template: "<del>$1</del>"
         )
 
+        for fragment in codeFragments {
+            result = result.replacingOccurrences(of: fragment.token, with: fragment.html)
+        }
         return result
     }
 
