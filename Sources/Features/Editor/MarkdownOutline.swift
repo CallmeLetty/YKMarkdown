@@ -236,11 +236,6 @@ struct MarkdownHeading: Equatable, Identifiable {
     let sourceRange: NSRange
 }
 
-struct HeadingNavigationRequest: Equatable {
-    let token: UUID
-    let heading: MarkdownHeading
-}
-
 enum MarkdownOutlineParser {
     static func headings(in markdown: String) -> [MarkdownHeading] {
         let source = markdown as NSString
@@ -403,7 +398,8 @@ struct MarkdownOutlineSidebar: View {
     }
 }
 
-struct MarkdownScrollSyncRequest: Equatable {
+/// 其他区域需要跟随的源码位置；token 允许重复定位同一位置。
+struct DocumentPositionRequest: Equatable {
     let token: UUID
     let sourceOffset: Int
 }
@@ -414,15 +410,13 @@ struct MarkdownSourceEditor: NSViewRepresentable {
     let fontSize: Double
     let backgroundColor: NSColor
     let foregroundColor: NSColor
-    let headings: [MarkdownHeading]
     let scrollAnchorOffsets: [Int]
-    let navigationRequest: HeadingNavigationRequest?
-    let scrollSyncRequest: MarkdownScrollSyncRequest?
+    let positionRequest: DocumentPositionRequest?
     let searchQuery: String
     let selectedSearchRange: NSRange?
     let searchNavigationRequest: DocumentSearchNavigationRequest?
-    let onActiveHeadingChange: (String?) -> Void
-    let onScrollAnchorChange: (Int) -> Void
+    /// 主动滚动、光标及选区变化统一上报源码位置。
+    let onPositionChange: (Int) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -471,6 +465,8 @@ struct MarkdownSourceEditor: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         context.coordinator.parent = self
+        context.coordinator.isUpdatingView = true
+        defer { context.coordinator.isUpdatingView = false }
         guard let textView = context.coordinator.textView else { return }
 
         (textView as? MarkdownTextView)?.documentURL = documentURL
@@ -490,16 +486,9 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         }
         context.coordinator.applySearchHighlights(query: searchQuery, selectedRange: selectedSearchRange)
 
-        if let request = navigationRequest,
-           context.coordinator.lastNavigationToken != request.token {
-            context.coordinator.lastNavigationToken = request.token
-            context.coordinator.scroll(toSourceOffset: request.heading.sourceRange.location)
-            onActiveHeadingChange(request.heading.id)
-        }
-
-        if let request = scrollSyncRequest,
-           context.coordinator.lastScrollSyncToken != request.token {
-            context.coordinator.lastScrollSyncToken = request.token
+        if let request = positionRequest,
+           context.coordinator.lastPositionToken != request.token {
+            context.coordinator.lastPositionToken = request.token
             context.coordinator.scroll(toSourceOffset: request.sourceOffset)
         }
 
@@ -552,12 +541,17 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         var parent: MarkdownSourceEditor
         weak var textView: NSTextView?
         weak var scrollView: NSScrollView?
-        var lastNavigationToken: UUID?
-        var lastScrollSyncToken: UUID?
+        var lastPositionToken: UUID?
         var lastSearchNavigationToken: UUID?
         var lastAppliedAppearance: EditorAppearance?
+        /// SwiftUI 刷新和被动滚动不得产生新的主动位置事件。
+        var isUpdatingView = false
         private var isApplyingSyncedScroll = false
-        private var lastReportedScrollAnchor: Int?
+        private var scrollGeneration = UUID()
+        private var positionGeneration = UUID()
+        /// 同一轮事件中，光标位置优先于自动滚动产生的视口位置。
+        private var pendingSelectionOffset: Int?
+        private var previousSelectionRange = NSRange(location: 0, length: 0)
 
         init(parent: MarkdownSourceEditor) {
             self.parent = parent
@@ -574,8 +568,48 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         }
 
         @objc private func scrollBoundsDidChange() {
-            reportActiveHeading()
             reportScrollAnchor()
+        }
+
+        /// 选区变化即使未引起滚动，也应让其他区域跟随。
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let textView else { return }
+            let range = textView.selectedRange()
+            let previous = previousSelectionRange
+            previousSelectionRange = range
+            guard !isUpdatingView, !isApplyingSyncedScroll,
+                  textView.window?.firstResponder === textView
+            else { return }
+            let offset = range.length > 0 && range.location == previous.location
+                ? NSMaxRange(range) : range.location
+            pendingSelectionOffset = offset
+            reportPosition(offset)
+        }
+
+        /// 延后回传，避免在 NSViewRepresentable 更新期间修改 SwiftUI 状态。
+        private func reportPosition(_ offset: Int) {
+            guard offset != NSNotFound else { return }
+            let generation = UUID()
+            positionGeneration = generation
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.positionGeneration == generation else { return }
+                let position = self.pendingSelectionOffset ?? offset
+                self.pendingSelectionOffset = nil
+                self.parent.onPositionChange(position)
+            }
+        }
+
+        /// 抑制程序化滚动的通知，连续请求只由最后一次解除抑制。
+        private func beginFollowingPosition() {
+            isApplyingSyncedScroll = true
+            positionGeneration = UUID()
+            pendingSelectionOffset = nil
+            let generation = UUID()
+            scrollGeneration = generation
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.scrollGeneration == generation else { return }
+                self.isApplyingSyncedScroll = false
+            }
         }
 
         func textDidChange(_ notification: Notification) {
@@ -605,15 +639,11 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             )
             let glyphRect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
 
-            isApplyingSyncedScroll = true
-            lastReportedScrollAnchor = sourceOffset
+            beginFollowingPosition()
             scrollView.contentView.scroll(
                 to: NSPoint(x: scrollView.contentView.bounds.minX, y: max(0, glyphRect.minY))
             )
             scrollView.reflectScrolledClipView(scrollView.contentView)
-            DispatchQueue.main.async { [weak self] in
-                self?.isApplyingSyncedScroll = false
-            }
         }
 
         func applySearchHighlights(query: String, selectedRange: NSRange?) {
@@ -646,27 +676,19 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             let safeLocation = min(range.location, textLength - 1)
             let safeLength = min(range.length, textLength - safeLocation)
             let safeRange = NSRange(location: safeLocation, length: safeLength)
+            beginFollowingPosition()
             textView.setSelectedRange(safeRange)
             textView.scrollRangeToVisible(safeRange)
         }
 
-        private func reportActiveHeading() {
-            guard let characterIndex = visibleCharacterIndex() else { return }
-            let active = parent.headings.last { $0.sourceRange.location <= characterIndex }
-                ?? parent.headings.first
-            parent.onActiveHeadingChange(active?.id)
-        }
-
         private func reportScrollAnchor() {
-            guard !isApplyingSyncedScroll,
+            guard !isUpdatingView, !isApplyingSyncedScroll,
                   let characterIndex = visibleCharacterIndex(),
                   let sourceOffset = parent.scrollAnchorOffsets.last(where: { $0 <= characterIndex })
-                    ?? parent.scrollAnchorOffsets.first,
-                  sourceOffset != lastReportedScrollAnchor
+                    ?? parent.scrollAnchorOffsets.first
             else { return }
 
-            lastReportedScrollAnchor = sourceOffset
-            parent.onScrollAnchorChange(sourceOffset)
+            reportPosition(sourceOffset)
         }
 
         private func visibleCharacterIndex() -> Int? {

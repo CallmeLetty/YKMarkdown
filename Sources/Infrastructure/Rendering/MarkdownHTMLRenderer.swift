@@ -109,6 +109,7 @@ enum MarkdownHTMLRenderer {
               overflow: auto;
             }
             pre code {
+              border: none;
               background: transparent;
               padding: 0;
               border-radius: 0;
@@ -239,6 +240,7 @@ enum MarkdownHTMLRenderer {
             #content.is-link-open-mode a { cursor: pointer; }
             ul, ol { padding-left: 1.5em; }
             li { margin: 0.42em 0; }
+            li > ul, li > ol { margin-bottom: 0; }
             li::marker { color: var(--link); }
             @media (max-width: 620px) {
               :root {
@@ -349,13 +351,38 @@ enum MarkdownHTMLRenderer {
             let emitTimer = null;
             let suppressEmit = false;
             const headingSelector = 'h1, h2, h3, h4, h5, h6';
-            const activeHeadingThreshold = 36;
-            let activeHeadingTimer = null;
-            let activeHeadingID = null;
             const sourceAnchorSelector = '[data-source-offset]';
             let scrollAnchorFrame = null;
-            let lastReportedSourceOffset = null;
+            let pendingPositionOffset = null;
             let suppressScrollAnchorReport = false;
+            let followGeneration = 0;
+
+            // 连续被动定位只由最后一次解除抑制，避免滚动事件反向驱动源码。
+            function beginFollowingPosition() {
+              suppressScrollAnchorReport = true;
+              const generation = ++followGeneration;
+              pendingPositionOffset = null;
+              if (scrollAnchorFrame !== null) {
+                cancelAnimationFrame(scrollAnchorFrame);
+                scrollAnchorFrame = null;
+              }
+              requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                  if (generation === followGeneration) suppressScrollAnchorReport = false;
+                });
+              });
+            }
+            // 新的真实输入立即接管位置，不能被上一轮被动跟随的抑制窗口吞掉。
+            function resumeUserPosition(event) {
+              if (!event.isTrusted) return;
+              ++followGeneration;
+              suppressScrollAnchorReport = false;
+              pendingPositionOffset = null;
+            }
+            window.addEventListener('wheel', resumeUserPosition, { passive: true });
+            content.addEventListener('pointerdown', resumeUserPosition);
+            content.addEventListener('keydown', resumeUserPosition);
+
             let pendingPreviewEdit = {
               range: null
             };
@@ -397,6 +424,7 @@ enum MarkdownHTMLRenderer {
             function handleLinkActivation(event) {
               const anchor = anchorFromEvent(event);
               if (!anchor || !anchor.href || !isMacCommandPressed(event)) return false;
+              if ((anchor.getAttribute('href') || '').startsWith('#')) return false;
               event.preventDefault();
               post({ type: 'openURL', url: anchor.href });
               return true;
@@ -622,10 +650,6 @@ enum MarkdownHTMLRenderer {
                 }
               }
 
-              requestAnimationFrame(function () {
-                reportActiveHeading();
-                reportScrollAnchor();
-              });
             }
 
             function currentBlock() {
@@ -791,36 +815,32 @@ enum MarkdownHTMLRenderer {
               });
             }
 
-            function reportActiveHeading() {
-              const headings = Array.from(content.querySelectorAll(headingSelector));
-              let active = headings.length ? headings[0] : null;
-              headings.forEach(function (heading) {
-                if (heading.getBoundingClientRect().top <= activeHeadingThreshold) {
-                  active = heading;
-                }
-              });
-              const id = active ? active.id : null;
-              if (activeHeadingID !== id) {
-                activeHeadingID = id;
-                post({ type: 'activeHeadingChanged', id: id });
-              }
-            }
-
-            function scheduleActiveHeadingReport() {
-              clearTimeout(activeHeadingTimer);
-              activeHeadingTimer = setTimeout(reportActiveHeading, 50);
-            }
-
             function sourceAnchors() {
               return Array.from(content.querySelectorAll(sourceAnchorSelector)).filter(function (element) {
                 return Number.isFinite(Number(element.dataset.sourceOffset));
               });
             }
 
-            function reportScrollAnchor() {
-              if (suppressScrollAnchorReport) return;
+            // 点击、选区和滚动共用源码块位置；不向其他区域传递键盘焦点。
+            function reportPosition(sourceOffset) {
+              if (suppressScrollAnchorReport || sourceOffset === null || !Number.isFinite(sourceOffset)) return;
+              pendingPositionOffset = sourceOffset;
+              scheduleScrollAnchorReport();
+            }
+
+            function reportSelectionPosition() {
+              if (!content.contains(document.activeElement)) return;
+              const selection = window.getSelection();
+              if (!selection || !content.contains(selection.focusNode)) return;
+              const block = sourceBlockForRangeBoundary(selection.focusNode, selection.focusOffset, false);
+              reportPosition(sourceOffsetForBlock(block));
+            }
+
+            document.addEventListener('selectionchange', reportSelectionPosition);
+
+            function visibleSourceOffset() {
               const anchors = sourceAnchors();
-              if (!anchors.length) return;
+              if (!anchors.length) return null;
               const viewportTop = 20;
               let active = anchors[0];
               anchors.forEach(function (anchor) {
@@ -828,28 +848,29 @@ enum MarkdownHTMLRenderer {
                   active = anchor;
                 }
               });
-              const sourceOffset = Number(active.dataset.sourceOffset);
-              if (sourceOffset === lastReportedSourceOffset) return;
-              lastReportedSourceOffset = sourceOffset;
-              post({ type: 'scrollAnchorChanged', sourceOffset: sourceOffset });
+              return Number(active.dataset.sourceOffset);
             }
 
             function scheduleScrollAnchorReport() {
+              if (suppressScrollAnchorReport) return;
               if (scrollAnchorFrame !== null) return;
               scrollAnchorFrame = requestAnimationFrame(function () {
                 scrollAnchorFrame = null;
-                reportScrollAnchor();
+                const sourceOffset = pendingPositionOffset ?? visibleSourceOffset();
+                pendingPositionOffset = null;
+                if (!suppressScrollAnchorReport && sourceOffset !== null) {
+                  post({ type: 'positionChanged', sourceOffset: sourceOffset });
+                }
               });
             }
 
             content.addEventListener('input', function () {
               ensureHeadingIDs();
               scheduleEmit(true);
-              scheduleActiveHeadingReport();
+              reportSelectionPosition();
             });
             content.addEventListener('beforeinput', rememberEditingRange);
             window.addEventListener('scroll', function () {
-              scheduleActiveHeadingReport();
               scheduleScrollAnchorReport();
             }, { passive: true });
 
@@ -883,9 +904,20 @@ enum MarkdownHTMLRenderer {
             });
 
             content.addEventListener('click', function (event) {
+              reportPosition(sourceOffsetForBlock(sourceBlockFromNode(event.target)));
               const anchor = anchorFromEvent(event);
               if (anchor) {
                 event.preventDefault();
+                const href = anchor.getAttribute('href') || '';
+                if (href.startsWith('#')) {
+                  let id;
+                  try { id = decodeURIComponent(href.slice(1)); } catch (_) { return; }
+                  const target = document.getElementById(id);
+                  if (target && content.contains(target)) {
+                    target.scrollIntoView({ behavior: 'auto', block: 'start' });
+                    reportPosition(sourceOffsetForBlock(sourceBlockFromNode(target)));
+                  }
+                }
               }
             });
 
@@ -917,6 +949,7 @@ enum MarkdownHTMLRenderer {
             });
 
             window.setBodyHTML = function (html) {
+              beginFollowingPosition();
               suppressEmit = true;
               const htmlValue = html && html.length ? html : '<p data-source-offset="0"><br></p>';
               if (content.innerHTML !== htmlValue) {
@@ -925,7 +958,6 @@ enum MarkdownHTMLRenderer {
               ensureHeadingIDs();
               suppressEmit = false;
               renderMermaidDiagrams();
-              requestAnimationFrame(reportActiveHeading);
             };
 
             window.setSourceOffsets = function (offsets) {
@@ -951,16 +983,9 @@ enum MarkdownHTMLRenderer {
                   target = anchor;
                 }
               });
-              const targetOffset = Number(target.dataset.sourceOffset);
               const targetTop = target.getBoundingClientRect().top + window.scrollY - 20;
-              suppressScrollAnchorReport = true;
-              lastReportedSourceOffset = targetOffset;
+              beginFollowingPosition();
               window.scrollTo({ top: Math.max(0, targetTop), behavior: 'auto' });
-              requestAnimationFrame(function () {
-                requestAnimationFrame(function () {
-                  suppressScrollAnchorReport = false;
-                });
-              });
             };
 
             window.setAccentColor = function (color) {
@@ -988,24 +1013,6 @@ enum MarkdownHTMLRenderer {
               if (colorSchemeChanged) renderMermaidDiagrams();
             };
 
-            window.scrollToHeading = function (id) {
-              ensureHeadingIDs();
-              const heading = document.getElementById(id);
-              if (!heading) return;
-              suppressScrollAnchorReport = true;
-              const sourceOffset = Number(heading.dataset.sourceOffset);
-              if (Number.isFinite(sourceOffset)) {
-                lastReportedSourceOffset = sourceOffset;
-              }
-              heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              activeHeadingID = id;
-              post({ type: 'activeHeadingChanged', id: id });
-              setTimeout(function () {
-                suppressScrollAnchorReport = false;
-                reportActiveHeading();
-              }, 350);
-            };
-
             window.insertImageAtCaret = function (src, alt) {
               const safeSrc = String(src).replace(/"/g, '&quot;');
               const safeAlt = String(alt || '').replace(/"/g, '&quot;');
@@ -1024,7 +1031,6 @@ enum MarkdownHTMLRenderer {
 
             ensureHeadingIDs();
             renderMermaidDiagrams();
-            requestAnimationFrame(reportActiveHeading);
           })();
           </script>
         </body>
@@ -1051,8 +1057,9 @@ enum MarkdownHTMLRenderer {
         var codeLines: [String] = []
         var paragraph: [String] = []
         var paragraphOffset = 0
-        var listKind: ListKind?
-        var listItems: [String] = []
+        // 栈中每层保留一个尚未关闭的 li，子列表才能放在父条目内部。
+        var listLevels: [ListLevel] = []
+        var listHTML = ""
         var listOffset = 0
         var headingIndex = 0
 
@@ -1075,16 +1082,43 @@ enum MarkdownHTMLRenderer {
             paragraph.removeAll(keepingCapacity: true)
         }
 
+        // 只有最外层列表携带源码锚点，维持预览整块回写和位置映射的一致性。
+        func closeListLevel() {
+            guard let level = listLevels.popLast() else { return }
+            let tag = level.kind == .unordered ? "ul" : "ol"
+            listHTML += "</li></\(tag)>"
+            if listLevels.isEmpty {
+                appendBlock(listHTML, sourceOffset: listOffset)
+                listHTML = ""
+            }
+        }
+
         func flushList() {
-            guard let kind = listKind, !listItems.isEmpty else { return }
-            let tag = kind == .unordered ? "ul" : "ol"
-            let items = listItems.map { "<li>\(renderInline($0))</li>" }.joined()
-            appendBlock(
-                "<\(tag)\(sourceAttribute(listOffset))>\(items)</\(tag)>",
-                sourceOffset: listOffset
-            )
-            listKind = nil
-            listItems.removeAll(keepingCapacity: true)
+            while !listLevels.isEmpty {
+                closeListLevel()
+            }
+        }
+
+        // 缩进增加时进入子列表，回退时关闭子列表，同级类型变化时另起列表。
+        func appendListItem(_ text: String, kind: ListKind, indentation: Int, sourceOffset: Int) {
+            while let level = listLevels.last, indentation < level.indentation {
+                closeListLevel()
+            }
+            if let level = listLevels.last, indentation == level.indentation, kind != level.kind {
+                closeListLevel()
+            }
+            if let level = listLevels.last, indentation == level.indentation {
+                listHTML += "</li><li>"
+            } else {
+                let tag = kind == .unordered ? "ul" : "ol"
+                let attribute = listLevels.isEmpty ? sourceAttribute(sourceOffset) : ""
+                if listLevels.isEmpty {
+                    listOffset = sourceOffset
+                }
+                listHTML += "<\(tag)\(attribute)><li>"
+                listLevels.append(ListLevel(kind: kind, indentation: indentation))
+            }
+            listHTML += renderInline(text)
         }
 
         while index < lines.count {
@@ -1130,12 +1164,18 @@ enum MarkdownHTMLRenderer {
 
             if trimmed.isEmpty {
                 flushParagraph()
-                flushList()
-                index += 1
+                // 回写产生的列表间空行不能打断父子关系；非列表块仍正常结束列表。
+                repeat {
+                    index += 1
+                } while index < lines.count && lines[index].trimmingCharacters(in: .whitespaces).isEmpty
+                let nextLine = index < lines.count ? lines[index].trimmingCharacters(in: .whitespaces) : ""
+                if matchUnorderedListItem(nextLine) == nil && matchOrderedListItem(nextLine) == nil {
+                    flushList()
+                }
                 continue
             }
 
-            if trimmed == "---" {
+            if isThematicBreak(line) {
                 flushParagraph()
                 flushList()
                 appendBlock("<hr\(sourceAttribute(lineOffsets[index])) />", sourceOffset: lineOffsets[index])
@@ -1184,24 +1224,14 @@ enum MarkdownHTMLRenderer {
 
             if let unordered = matchUnorderedListItem(trimmed) {
                 flushParagraph()
-                if listKind != .unordered {
-                    flushList()
-                    listKind = .unordered
-                    listOffset = lineOffsets[index]
-                }
-                listItems.append(unordered)
+                appendListItem(unordered, kind: .unordered, indentation: listIndentation(line), sourceOffset: lineOffsets[index])
                 index += 1
                 continue
             }
 
             if let ordered = matchOrderedListItem(trimmed) {
                 flushParagraph()
-                if listKind != .ordered {
-                    flushList()
-                    listKind = .ordered
-                    listOffset = lineOffsets[index]
-                }
-                listItems.append(ordered)
+                appendListItem(ordered, kind: .ordered, indentation: listIndentation(line), sourceOffset: lineOffsets[index])
                 index += 1
                 continue
             }
@@ -1262,6 +1292,46 @@ enum MarkdownHTMLRenderer {
     private enum ListKind {
         case unordered
         case ordered
+    }
+
+    /// 保存列表类型和标记缩进，用于恢复父子结构及同级列表边界。
+    private struct ListLevel {
+        let kind: ListKind
+        let indentation: Int
+    }
+
+    /// 按四列制表位计算缩进，兼容空格、Tab 以及混合缩进。
+    private static func listIndentation(_ line: String) -> Int {
+        var columns = 0
+        for character in line {
+            if character == " " {
+                columns += 1
+            } else if character == "\t" {
+                columns += 4 - columns % 4
+            } else {
+                break
+            }
+        }
+        return columns
+    }
+
+    /// 分隔线优先于列表识别：最多缩进三格，至少三个同类标记，允许空格和 Tab 间隔。
+    private static func isThematicBreak(_ line: String) -> Bool {
+        let indentation = line.prefix { $0 == " " }.count
+        guard indentation <= 3 else { return false }
+        let content = line.dropFirst(indentation)
+        guard let marker = content.first, marker == "*" || marker == "-" || marker == "_" else {
+            return false
+        }
+        var markerCount = 0
+        for character in content {
+            if character == marker {
+                markerCount += 1
+            } else if character != " " && character != "\t" {
+                return false
+            }
+        }
+        return markerCount >= 3
     }
 
     private static func parseHeading(_ line: String) -> (level: Int, text: String)? {

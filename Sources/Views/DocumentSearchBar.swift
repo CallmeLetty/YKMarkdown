@@ -4,6 +4,8 @@ import SwiftUI
 struct DocumentSearchBar: View {
     @Binding var scope: DocumentSearchScope
     @Binding var query: String
+    /// 独立于显示状态的聚焦请求，用于响应重复打开搜索。
+    let focusRequest: UUID
     let matches: [MarkdownSearchMatch]
     let selectedMatchID: MarkdownSearchMatch.ID?
     let selectedIndex: Int?
@@ -63,7 +65,7 @@ struct DocumentSearchBar: View {
         .overlay(alignment: .bottom) {
             Divider()
         }
-        .onAppear {
+        .onChange(of: focusRequest, initial: true) { _, _ in
             isSearchFieldFocused = true
         }
     }
@@ -167,12 +169,15 @@ struct DocumentSearchBar: View {
 private struct DocumentSearchBarPreview: View {
     @State private var scope: DocumentSearchScope = .all
     @State private var query = "target"
+    /// 为预览提供稳定的初始聚焦请求。
+    @State private var focusRequest = UUID()
     private let matches = Self.sampleMatches
 
     var body: some View {
         DocumentSearchBar(
             scope: $scope,
             query: $query,
+            focusRequest: focusRequest,
             matches: matches,
             selectedMatchID: matches.first?.id,
             selectedIndex: 0,

@@ -3,6 +3,89 @@ import XCTest
 @testable import YKMarkdown
 
 final class YKMarkdownTests: XCTestCase {
+    // 星号、横线和下划线的分隔线均应生成 hr，不能落入列表或强调解析。
+    func testRendererSupportsThematicBreakVariants() {
+        for markdown in ["***", "* * *", "---", "- - -", "___", "_ _ _", "-----", "  ***", "   _\t_\t_  "] {
+            XCTAssertEqual(MarkdownHTMLRenderer.bodyHTML(from: markdown), "<hr data-source-offset=\"0\" />", markdown)
+        }
+    }
+
+    // 连续五条分隔线各自保留 HTML 节点和源码锚点，不因空行合并。
+    func testRendererPreservesConsecutiveThematicBreaks() {
+        for separator in ["\n", "\n\n", "\r\n\r\n"] {
+            let markdown = Array(repeating: "---", count: 5).joined(separator: separator)
+            let offsets = (0..<5).map { $0 * (3 + separator.utf16.count) }
+            let expected = offsets.map { "<hr data-source-offset=\"\($0)\" />" }.joined(separator: "\n")
+
+            XCTAssertEqual(MarkdownHTMLRenderer.bodyHTML(from: markdown), expected)
+            XCTAssertEqual(MarkdownHTMLRenderer.sourceOffsets(from: markdown), offsets)
+        }
+    }
+
+    // 非法混合、标记不足、转义、普通内容和代码中的标记不能误判为分隔线。
+    func testRendererDoesNotTreatOtherContentAsThematicBreaks() {
+        for markdown in ["**", "--", "__", "*-*", "- _ -", "*** 内容", "\\*\\*\\*", "    ***", "\t***", "`***`", "```\n***\n```", "* 列表"] {
+            XCTAssertFalse(MarkdownHTMLRenderer.bodyHTML(from: markdown).contains("<hr"), markdown)
+        }
+    }
+
+    // 列表之间的星号分隔线必须独立成块，后面的条目开启新的列表。
+    func testThematicBreakSeparatesLists() {
+        let markdown = "- 前项\n\n* * *\n\n- 后项"
+        let source = markdown as NSString
+        let dividerOffset = source.range(of: "* * *").location
+        let nextListOffset = source.range(of: "- 后项").location
+
+        XCTAssertEqual(
+            MarkdownHTMLRenderer.bodyHTML(from: markdown),
+            "<ul data-source-offset=\"0\"><li>前项</li></ul>\n<hr data-source-offset=\"\(dividerOffset)\" />\n<ul data-source-offset=\"\(nextListOffset)\"><li>后项</li></ul>"
+        )
+        XCTAssertEqual(MarkdownHTMLRenderer.sourceOffsets(from: markdown), [0, dividerOffset, nextListOffset])
+    }
+
+    // 对应已证实、待验证两组父条目，子列表必须留在各自的 li 内。
+    func testRendererPreservesNestedListGroups() {
+        let markdown = "- 已证实\n  - **模型推理**\n  - 加载\n- 待验证\n  - 延迟\n  - 内存"
+
+        XCTAssertEqual(
+            MarkdownHTMLRenderer.bodyHTML(from: markdown),
+            "<ul data-source-offset=\"0\"><li>已证实<ul><li><strong>模型推理</strong></li><li>加载</li></ul></li><li>待验证<ul><li>延迟</li><li>内存</li></ul></li></ul>"
+        )
+    }
+
+    // 混合列表在同级切换类型、跨多级回退后仍应生成闭合的父子结构。
+    func testRendererSupportsMixedNestedListsAndDedentation() {
+        let markdown = "- 父项\n  1. 步骤\n     - 细节\n  2. 下一步\n  - 补充\n- 同级\n1. 新列表"
+
+        XCTAssertEqual(
+            MarkdownHTMLRenderer.bodyHTML(from: markdown),
+            "<ul data-source-offset=\"0\"><li>父项<ol><li>步骤<ul><li>细节</li></ul></li><li>下一步</li></ol><ul><li>补充</li></ul></li><li>同级</li></ul>\n<ol data-source-offset=\"\((markdown as NSString).range(of: "1. 新列表").location)\"><li>新列表</li></ol>"
+        )
+    }
+
+    // HTML 回写可能在子列表前后插入空行；再次渲染不能丢失层级。
+    func testRendererPreservesNestedListsAcrossBlankLinesAndTabs() {
+        let markdown = "- 父项\n\n\t- 子项\n    - 同级子项\n\n- 另一父项\n\n结束"
+        let paragraphOffset = (markdown as NSString).range(of: "结束").location
+
+        XCTAssertEqual(
+            MarkdownHTMLRenderer.bodyHTML(from: markdown),
+            "<ul data-source-offset=\"0\"><li>父项<ul><li>子项</li><li>同级子项</li></ul></li><li>另一父项</li></ul>\n<p data-source-offset=\"\(paragraphOffset)\">结束</p>"
+        )
+        XCTAssertEqual(MarkdownHTMLRenderer.sourceOffsets(from: markdown), [0, paragraphOffset])
+    }
+
+    // 子列表不新增源码块，保证 CRLF 和非 BMP 字符下整块编辑的 UTF-16 偏移。
+    func testNestedListSourceOffsetsRemainTopLevel() {
+        let markdown = "😀\r\n\r\n- 父项\r\n  - 子项\r\n\r\n结尾"
+        let source = markdown as NSString
+
+        XCTAssertEqual(
+            MarkdownHTMLRenderer.sourceOffsets(from: markdown),
+            [0, source.range(of: "- 父项").location, source.range(of: "结尾").location]
+        )
+    }
+
     func testRendererConvertsHeadingAndEmphasis() {
         let html = MarkdownHTMLRenderer.bodyHTML(from: "# Title\n\nHello **world**")
         XCTAssertTrue(html.contains("<h1 id=\"yk-heading-0\" data-source-offset=\"0\">Title</h1>"))

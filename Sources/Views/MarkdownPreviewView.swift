@@ -10,15 +10,14 @@ struct MarkdownPreviewView: NSViewRepresentable {
     var onPasteImages: () -> Void
     var onDropImages: ([URL]) -> Void
     var insertImageRequest: InsertImageRequest?
-    var headingNavigationRequest: HeadingNavigationRequest?
-    var scrollSyncRequest: MarkdownScrollSyncRequest?
+    var positionRequest: DocumentPositionRequest?
     var themeColorCSS: String
     var fontSize: Double
     var backgroundColorCSS: String
     var foregroundColorCSS: String
     var colorSchemeCSS: String
-    var onActiveHeadingChange: (String?) -> Void
-    var onScrollAnchorChange: (Int) -> Void
+    /// 仅上报预览中的主动位置变化，偏移对应源码内容块。
+    var onPositionChange: (Int) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -76,15 +75,9 @@ struct MarkdownPreviewView: NSViewRepresentable {
             context.coordinator.insertImage(path: request.relativePath, alt: request.altText)
         }
 
-        if let request = headingNavigationRequest,
-           context.coordinator.lastNavigationToken != request.token {
-            context.coordinator.lastNavigationToken = request.token
-            context.coordinator.navigate(to: request.heading.id)
-        }
-
-        if let request = scrollSyncRequest,
-           context.coordinator.lastScrollSyncToken != request.token {
-            context.coordinator.lastScrollSyncToken = request.token
+        if let request = positionRequest,
+           context.coordinator.lastPositionToken != request.token {
+            context.coordinator.lastPositionToken = request.token
             context.coordinator.scroll(toSourceOffset: request.sourceOffset)
         }
     }
@@ -114,12 +107,10 @@ struct MarkdownPreviewView: NSViewRepresentable {
         var baseURL: URL?
         var lastAppliedMarkdown = ""
         var lastInsertToken: UUID?
-        var lastNavigationToken: UUID?
-        var lastScrollSyncToken: UUID?
+        var lastPositionToken: UUID?
         private var isPageReady = false
         private var isUpdatingFromPreview = false
         private var pendingBodyHTML: String?
-        private var pendingHeadingID: String?
         private var pendingScrollSourceOffset: Int?
         private var pendingThemeColor: String?
         private var pendingFontSize: Double?
@@ -206,15 +197,6 @@ struct MarkdownPreviewView: NSViewRepresentable {
             webView.evaluateJavaScript(script, completionHandler: nil)
         }
 
-        func navigate(to headingID: String) {
-            guard isPageReady, let webView else {
-                pendingHeadingID = headingID
-                return
-            }
-            let script = "window.scrollToHeading(\(Self.jsString(headingID)));"
-            webView.evaluateJavaScript(script, completionHandler: nil)
-        }
-
         func scroll(toSourceOffset sourceOffset: Int) {
             guard isPageReady, let webView else {
                 pendingScrollSourceOffset = sourceOffset
@@ -265,12 +247,9 @@ struct MarkdownPreviewView: NSViewRepresentable {
                     NSWorkspace.shared.open(url)
                 }
 
-            case "activeHeadingChanged":
-                parent.onActiveHeadingChange(body["id"] as? String)
-
-            case "scrollAnchorChanged":
+            case "positionChanged":
                 if let sourceOffset = body["sourceOffset"] as? NSNumber {
-                    parent.onScrollAnchorChange(sourceOffset.intValue)
+                    parent.onPositionChange(sourceOffset.intValue)
                 }
 
             default:
@@ -283,10 +262,6 @@ struct MarkdownPreviewView: NSViewRepresentable {
             if let pendingBodyHTML {
                 setBodyHTML(pendingBodyHTML)
                 self.pendingBodyHTML = nil
-            }
-            if let pendingHeadingID {
-                navigate(to: pendingHeadingID)
-                self.pendingHeadingID = nil
             }
             if let pendingScrollSourceOffset {
                 scroll(toSourceOffset: pendingScrollSourceOffset)

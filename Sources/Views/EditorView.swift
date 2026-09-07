@@ -18,13 +18,12 @@ struct EditorView: View {
     @AppStorage(AppThemeColor.customHexKey) private var themeColorHex = AppThemeColor.defaultCustomHex
 
     @State private var layout: EditorLayout = .split
-    @State private var activeHeadingID: String?
-    @State private var headingNavigationRequest: HeadingNavigationRequest?
-    @State private var editorScrollSyncRequest: MarkdownScrollSyncRequest?
-    @State private var previewScrollSyncRequest: MarkdownScrollSyncRequest?
+    @State private var sourcePositionRequest: DocumentPositionRequest?
+    @State private var previewPositionRequest: DocumentPositionRequest?
     @State private var scrollAnchorOffsets: [Int] = []
     @State private var insertImageRequest: MarkdownPreviewView.InsertImageRequest?
-    @State private var lastPreviewSourceOffset: Int?
+    /// 各区域共享的当前位置，也用于布局切换后恢复定位。
+    @State private var documentSourceOffset: Int?
     @State private var showSaveFirstAlert = false
     @State private var saveFirstMessage = "插入图片前，请先保存 Markdown 文件。"
     @State private var alertMessage = ""
@@ -39,6 +38,8 @@ struct EditorView: View {
     @StateObject private var searchWindowBox = SearchDocumentWindowBox()
     @State private var documentSearchID = UUID()
     @State private var isSearchVisible = false
+    /// 每次打开搜索都更新请求，确保搜索栏已显示时仍能重新聚焦。
+    @State private var searchFocusRequest = UUID()
     @State private var searchScope: DocumentSearchScope = .current
     @State private var searchQuery = ""
     @State private var selectedSearchMatchID: MarkdownSearchMatch.ID?
@@ -188,9 +189,6 @@ struct EditorView: View {
             registerOpenSearchDocument()
             syncKnownDiskTextIfNeeded()
             updateScrollAnchorOffsets()
-            if activeHeadingID == nil {
-                activeHeadingID = headings.first?.id
-            }
         }
         .onChange(of: fileURL) { _, _ in
             mergeSession = nil
@@ -201,20 +199,18 @@ struct EditorView: View {
             registerOpenSearchDocument()
             updateScrollAnchorOffsets()
             validateSearchSelection()
-            guard let activeHeadingID,
-                  headings.contains(where: { $0.id == activeHeadingID })
-            else {
-                self.activeHeadingID = headings.first?.id
-                return
+            if let documentSourceOffset {
+                self.documentSourceOffset = min(documentSourceOffset, (document.text as NSString).length)
             }
         }
         .onChange(of: layout) { _, _ in
-            if layout == .editorOnly { return }
-            guard let sourceOffset = lastPreviewSourceOffset else { return }
-            previewScrollSyncRequest = MarkdownScrollSyncRequest(
-                token: UUID(),
-                sourceOffset: sourceOffset
-            )
+            guard let sourceOffset = documentSourceOffset else { return }
+            let request = DocumentPositionRequest(token: UUID(), sourceOffset: sourceOffset)
+            // 布局恢复不取消正在执行的搜索选区定位。
+            if searchNavigationRequest == nil {
+                sourcePositionRequest = request
+            }
+            previewPositionRequest = request
         }
         .onChange(of: searchQuery) { _, _ in
             selectFirstSearchMatchIfNeeded()
@@ -259,6 +255,12 @@ struct EditorView: View {
         }
     }
 
+    /// 目录位置由统一源码位置派生，避免各区域分别写入标题状态。
+    private var activeHeadingID: String? {
+        let offset = documentSourceOffset ?? 0
+        return (headings.last { $0.sourceRange.location <= offset } ?? headings.first)?.id
+    }
+
     private var headings: [MarkdownHeading] {
         MarkdownOutlineParser.headings(in: document.text)
     }
@@ -278,6 +280,7 @@ struct EditorView: View {
                 DocumentSearchBar(
                     scope: $searchScope,
                     query: $searchQuery,
+                    focusRequest: searchFocusRequest,
                     matches: searchMatches,
                     selectedMatchID: selectedSearchMatchID,
                     selectedIndex: selectedSearchIndex,
@@ -294,15 +297,12 @@ struct EditorView: View {
                 fontSize: editorFontSize,
                 backgroundColor: typographyAppearance.backgroundColor,
                 foregroundColor: typographyAppearance.foregroundColor,
-                headings: headings,
                 scrollAnchorOffsets: scrollAnchorOffsets,
-                navigationRequest: headingNavigationRequest,
-                scrollSyncRequest: editorScrollSyncRequest,
+                positionRequest: sourcePositionRequest,
                 searchQuery: isSearchVisible ? searchQuery : "",
                 selectedSearchRange: selectedSearchRange,
                 searchNavigationRequest: searchNavigationRequest,
-                onActiveHeadingChange: setActiveHeading,
-                onScrollAnchorChange: syncPreviewScroll
+                onPositionChange: { synchronizePosition(to: $0, from: .source) }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(typographyBackgroundColor)
@@ -324,18 +324,13 @@ struct EditorView: View {
                 importImageURLs(urls, intoPreview: true)
             },
             insertImageRequest: insertImageRequest,
-            headingNavigationRequest: headingNavigationRequest,
-            scrollSyncRequest: previewScrollSyncRequest,
+            positionRequest: previewPositionRequest,
             themeColorCSS: themeColorCSS,
             fontSize: editorFontSize,
             backgroundColorCSS: typographyAppearance.backgroundCSS,
             foregroundColorCSS: typographyAppearance.foregroundCSS,
             colorSchemeCSS: typographyAppearance.colorSchemeCSS,
-            onActiveHeadingChange: setActiveHeading,
-            onScrollAnchorChange: { sourceOffset in
-                lastPreviewSourceOffset = sourceOffset
-                syncEditorScroll(to: sourceOffset)
-            }
+            onPositionChange: { synchronizePosition(to: $0, from: .preview) }
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(typographyBackgroundColor)
@@ -349,28 +344,32 @@ struct EditorView: View {
         )
     }
 
+    /// 位置事件的来源；被动跟随的区域不再上报同一次移动。
+    private enum PositionOrigin {
+        case outline, source, preview, search
+    }
+
     private func navigate(to heading: MarkdownHeading) {
-        activeHeadingID = heading.id
-        headingNavigationRequest = HeadingNavigationRequest(token: UUID(), heading: heading)
+        synchronizePosition(to: heading.sourceRange.location, from: .outline)
     }
 
-    private func setActiveHeading(_ id: String?) {
-        guard activeHeadingID != id else { return }
-        activeHeadingID = id
-    }
-
-    private func syncPreviewScroll(to sourceOffset: Int) {
-        previewScrollSyncRequest = MarkdownScrollSyncRequest(
-            token: UUID(),
-            sourceOffset: sourceOffset
-        )
-    }
-
-    private func syncEditorScroll(to sourceOffset: Int) {
-        editorScrollSyncRequest = MarkdownScrollSyncRequest(
-            token: UUID(),
-            sourceOffset: sourceOffset
-        )
+    /// 以源码偏移统一更新目录和其他区域，不改变键盘焦点或被动区域的选区。
+    private func synchronizePosition(to sourceOffset: Int, from origin: PositionOrigin) {
+        let offset = min(max(sourceOffset, 0), (document.text as NSString).length)
+        if (origin == .source || origin == .preview), documentSourceOffset == offset { return }
+        documentSourceOffset = offset
+        if origin != .search {
+            searchNavigationRequest = nil
+        }
+        let request = DocumentPositionRequest(token: UUID(), sourceOffset: offset)
+        if origin != .source && origin != .search {
+            sourcePositionRequest = request
+        } else {
+            sourcePositionRequest = nil
+        }
+        if origin != .preview {
+            previewPositionRequest = request
+        }
     }
 
     private func updateScrollAnchorOffsets() {
@@ -426,6 +425,7 @@ struct EditorView: View {
             layout = .split
         }
         selectFirstSearchMatchIfNeeded()
+        searchFocusRequest = UUID()
     }
 
     private func closeSearch() {
@@ -477,7 +477,7 @@ struct EditorView: View {
             if layout == .previewOnly {
                 layout = .split
             }
-            searchNavigationRequest = DocumentSearchNavigationRequest(token: UUID(), range: match.range)
+            navigateToSearchRange(match.range)
         } else {
             searchRegistry.navigate(to: match, query: searchQuery, scope: searchScope)
         }
@@ -491,7 +491,13 @@ struct EditorView: View {
         if layout == .previewOnly {
             layout = .split
         }
+        navigateToSearchRange(range)
+    }
+
+    /// 所有搜索入口共享位置路由，源码保留精确的匹配选区。
+    private func navigateToSearchRange(_ range: NSRange) {
         searchNavigationRequest = DocumentSearchNavigationRequest(token: UUID(), range: range)
+        synchronizePosition(to: range.location, from: .search)
     }
 
     private func reloadDocumentFromDisk() {

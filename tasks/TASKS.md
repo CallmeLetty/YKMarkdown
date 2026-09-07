@@ -541,6 +541,28 @@
    Done by: CODEX
    Done at: 2026-09-04T15:49:25Z
 
+50. refocus-document-search
+   Id: 50-refocus-document-search
+   Scope: 每次打开搜索时重新聚焦输入框，覆盖快捷键及菜单入口
+   Files: Sources/Views/EditorView.swift,Sources/Views/DocumentSearchBar.swift
+   Note: 已实现统一入口重复聚焦，检查调用点与请求传递；未编译、未测试、未运行 SwiftLint，需应用内验证
+   Detail: tasks/details/50-refocus-document-search.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-05T06:59:37Z
+   Done by: CODEX
+   Done at: 2026-09-05T07:00:17Z
+
+51. unify-document-position
+   Id: 51-unify-document-position
+   Scope: 统一目录、源码、预览的位置同步，覆盖光标、选区、滚动及搜索跳转并抑制被动回传
+   Files: Sources/Views/EditorView.swift,Sources/Views/MarkdownPreviewView.swift,Sources/Features/Editor/MarkdownOutline.swift,Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift
+   Note: 已统一三区域位置路由并移除独立标题同步；JavaScript 语法检查通过，未编译或运行测试，交互待应用内验证
+   Detail: tasks/details/51-unify-document-position.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-05T07:06:53Z
+   Done by: CODEX
+   Done at: 2026-09-05T07:13:01Z
+
 52. protect-inline-code
    Id: 52-protect-inline-code
    Scope: 修复行内代码内容被后续 Markdown 格式规则再次解析
@@ -551,3 +573,92 @@
    Claimed at: 2026-09-06T03:12:06Z
    Done by: CODEX
    Done at: 2026-09-06T03:12:37Z
+
+53. diagnose-nested-list-preview
+   Id: 53-diagnose-nested-list-preview
+   Scope: 分析嵌套列表预览丢失层级原因
+   Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift
+   Note: 已确认解析时去除行首缩进，列表项按平级输出；提出保留缩进并生成嵌套列表方案，尚未修改业务代码，未编译或测试
+   Detail: tasks/details/53-diagnose-nested-list-preview.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-06T03:40:50Z
+   Done by: CODEX
+   Done at: 2026-09-06T03:40:50Z
+
+54. fix-nested-list-preview
+   Id: 54-fix-nested-list-preview
+   Scope: 修复嵌套列表解析和预览层级
+   Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift, Tests/AppTests.swift
+   Note: 已修复嵌套列表和间距，补充四个回归用例；静态检查完成，未编译或运行测试
+   Detail: tasks/details/54-fix-nested-list-preview.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-06T03:43:20Z
+   Done by: CODEX
+   Done at: 2026-09-06T03:45:23Z
+
+55. diagnose-asterisk-divider
+   Id: 55-diagnose-asterisk-divider
+   Scope: 分析星号分隔线被识别为列表的问题
+   Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift
+   Note: 已确认仅识别 --- 分隔线，星号空格形式被识别为列表，剩余星号被强调规则吞掉；未修改业务代码，未编译或测试
+   Detail: tasks/details/55-diagnose-asterisk-divider.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-06T03:59:15Z
+   Done by: CODEX
+   Done at: 2026-09-06T03:59:15Z
+
+56. audit-markdown-support
+   Id: 56-audit-markdown-support
+   Scope: 核对当前 Markdown 语法支持范围
+   Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift
+   Note: 已完成源码静态核对，列出未支持和部分支持语法；未修改业务代码，未编译或测试
+   Detail: tasks/details/56-audit-markdown-support.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-06T04:06:27Z
+   Done by: CODEX
+   Done at: 2026-09-06T04:06:27Z
+
+57. fix-code-block-border
+   Id: 57-fix-code-block-border
+   Scope: 修复预览代码块每行多余横线
+   Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift
+   Note: 已取消 pre code 内部边框，保留代码块外框及行内代码样式；完成静态核对，未编译或运行测试
+   Detail: tasks/details/57-fix-code-block-border.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-06T04:08:39Z
+   Done by: CODEX
+   Done at: 2026-09-06T04:08:52Z
+
+58. fix-thematic-breaks
+   Id: 58-fix-thematic-breaks
+   Scope: 补齐 Markdown 分隔线识别
+   Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift, Tests/AppTests.swift
+   Note: 已补齐分隔线写法，保留连续五条独立分隔线和源码锚点；补充四组回归用例，差异检查通过，未编译或运行测试
+   Detail: tasks/details/58-fix-thematic-breaks.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-06T04:10:02Z
+   Done by: CODEX
+   Done at: 2026-09-06T04:10:24Z
+
+59. document-markdown-compatibility
+   Id: 59-document-markdown-compatibility
+   Scope: 记录 Markdown 解析兼容性问题与规范方言
+   Files: docs/问题记录.md
+   Note: 已在问题记录中补充 Markdown 规范与方言对照、解析缺口和列表分隔线修复状态；文档差异检查通过，未编译或测试
+   Detail: tasks/details/59-document-markdown-compatibility.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-06T04:25:04Z
+   Done by: CODEX
+   Done at: 2026-09-06T04:25:05Z
+
+60. markdown-parser-todolist
+   Id: 60-markdown-parser-todolist
+   Scope: 建立 Markdown 解析补全清单和维护规则
+   Files: docs/Markdown 解析补全清单.md, AGENTS.md, docs/问题记录.md
+   Note: 已创建解析补全清单，列出稳定编号待办与完成记录，AGENTS.md 加入每次补全同步勾选规则；文档差异和编号检查通过，未编译或测试
+   Detail: tasks/details/60-markdown-parser-todolist.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-06T04:26:44Z
+   Done by: CODEX
+   Done at: 2026-09-06T04:26:45Z
+
