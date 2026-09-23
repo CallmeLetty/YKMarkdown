@@ -408,6 +408,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
     @Binding var text: String
     let documentURL: URL?
     let fontSize: Double
+    let lineSpacingScale: Double
     let backgroundColor: NSColor
     let foregroundColor: NSColor
     let scrollAnchorOffsets: [Int]
@@ -502,6 +503,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
     private var appearanceSignature: Coordinator.EditorAppearance {
         Coordinator.EditorAppearance(
             fontSize: fontSize,
+            lineSpacingScale: EditorLineSpacing.clamped(lineSpacingScale),
             backgroundColor: AppThemeColor.hex(from: backgroundColor),
             foregroundColor: AppThemeColor.hex(from: foregroundColor)
         )
@@ -510,7 +512,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
     private func applyAppearance(to textView: NSTextView, in scrollView: NSScrollView) {
         let font = AppTypographyAppearance.editorFont(size: fontSize)
         let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.lineHeightMultiple = AppTypographyAppearance.editorLineHeightMultiple
+        paragraphStyle.lineHeightMultiple = EditorLineSpacing.sourceLineHeight(for: lineSpacingScale)
 
         scrollView.backgroundColor = backgroundColor
         textView.font = font
@@ -534,6 +536,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         struct EditorAppearance: Equatable {
             let fontSize: Double
+            let lineSpacingScale: Double
             let backgroundColor: String
             let foregroundColor: String
         }

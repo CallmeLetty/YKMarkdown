@@ -53,6 +53,28 @@ enum EditorFontSize {
     }
 }
 
+enum EditorLineSpacing {
+    static let storageKey = "editorLineSpacingScale"
+    static let defaultValue = 1.0
+    static let minimum = 0.8
+    static let maximum = 1.3
+    static let step = 0.05
+    static let sourceBaseLineHeight: CGFloat = 1.55
+    static let previewBaseLineHeight = 1.9
+
+    static func clamped(_ value: Double) -> Double {
+        min(max(value, minimum), maximum)
+    }
+
+    static func sourceLineHeight(for scale: Double) -> CGFloat {
+        sourceBaseLineHeight * CGFloat(clamped(scale))
+    }
+
+    static func previewLineHeight(for scale: Double) -> Double {
+        previewBaseLineHeight * clamped(scale)
+    }
+}
+
 /// 当前获得焦点的文档窗口可响应的菜单命令。
 struct EditorCommandActions {
     let insertImagesFromPanel: () -> Void

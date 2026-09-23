@@ -11,6 +11,7 @@ struct EditorView: View {
     @AppStorage("blogBranch") private var blogBranch = BlogUploadSettings.default.branch
     @AppStorage("blogContentDirectory") private var blogContentDirectory = BlogUploadSettings.default.contentDirectory
     @AppStorage(EditorFontSize.storageKey) private var editorFontSize = EditorFontSize.defaultValue
+    @AppStorage(EditorLineSpacing.storageKey) private var editorLineSpacing = EditorLineSpacing.defaultValue
     @AppStorage("outlineSidebarVisible") private var isOutlineVisible = true
     @AppStorage(AppTypographyAppearance.customBackgroundEnabledKey) private var customBackgroundEnabled = false
     @AppStorage(AppTypographyAppearance.customBackgroundHexKey) private var customBackgroundHex = AppTypographyAppearance.defaultCustomBackgroundHex
@@ -295,6 +296,7 @@ struct EditorView: View {
                 text: editorTextBinding,
                 documentURL: fileURL,
                 fontSize: editorFontSize,
+                lineSpacingScale: editorLineSpacing,
                 backgroundColor: typographyAppearance.backgroundColor,
                 foregroundColor: typographyAppearance.foregroundColor,
                 scrollAnchorOffsets: scrollAnchorOffsets,
@@ -327,6 +329,7 @@ struct EditorView: View {
             positionRequest: previewPositionRequest,
             themeColorCSS: themeColorCSS,
             fontSize: editorFontSize,
+            lineSpacingScale: editorLineSpacing,
             backgroundColorCSS: typographyAppearance.backgroundCSS,
             foregroundColorCSS: typographyAppearance.foregroundCSS,
             colorSchemeCSS: typographyAppearance.colorSchemeCSS,

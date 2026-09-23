@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @AppStorage(EditorFontSize.storageKey) private var editorFontSize = EditorFontSize.defaultValue
+    @AppStorage(EditorLineSpacing.storageKey) private var editorLineSpacing = EditorLineSpacing.defaultValue
     @AppStorage("documentOpeningMode") private var documentOpeningMode = DocumentOpeningMode.tabs.rawValue
     @AppStorage(AppTypographyAppearance.customBackgroundEnabledKey) private var customBackgroundEnabled = false
     @AppStorage(AppTypographyAppearance.customBackgroundHexKey) private var customBackgroundHex = AppTypographyAppearance.defaultCustomBackgroundHex
@@ -38,6 +39,22 @@ struct SettingsView: View {
                     .font(.headline)
 
                 Text("宋体预览、舒展行距与偏暖纸张，适合中文长文。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Slider(
+                    value: $editorLineSpacing,
+                    in: EditorLineSpacing.minimum...EditorLineSpacing.maximum,
+                    step: EditorLineSpacing.step
+                ) {
+                    Text("行间距")
+                } minimumValueLabel: {
+                    Text("80%")
+                } maximumValueLabel: {
+                    Text("130%")
+                }
+
+                Text("当前行间距：\(lineSpacingPercentage)%")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -136,6 +153,10 @@ struct SettingsView: View {
                 themeColorHex = AppThemeColor.hex(from: color)
             }
         )
+    }
+
+    private var lineSpacingPercentage: Int {
+        Int((EditorLineSpacing.clamped(editorLineSpacing) * 100).rounded())
     }
 
     private var customBackgroundColor: Binding<Color> {

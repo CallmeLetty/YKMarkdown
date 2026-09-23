@@ -15,7 +15,7 @@ enum AppTypographyAppearance {
     static let customBackgroundHexKey = "customEditorBackgroundHex"
     static let defaultBackgroundHex = "#FFFDF8"
     static let defaultCustomBackgroundHex = defaultBackgroundHex
-    static let editorLineHeightMultiple: CGFloat = 1.55
+    static let editorLineHeightMultiple = EditorLineSpacing.sourceBaseLineHeight
     static let editorInset = NSSize(width: 26, height: 22)
 
     static func editorFont(size: CGFloat) -> NSFont {

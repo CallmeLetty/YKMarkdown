@@ -18,6 +18,7 @@ enum MarkdownHTMLRenderer {
         turndownScript: String,
         accentColorCSS: String = "#0969DA",
         fontSize: Double = 14,
+        lineSpacingScale: Double = EditorLineSpacing.defaultValue,
         backgroundColorCSS: String = "#FFFDF8",
         foregroundColorCSS: String = "#202522",
         colorSchemeCSS: String = "light"
@@ -42,7 +43,7 @@ enum MarkdownHTMLRenderer {
               --focus: color-mix(in srgb, \(accentColorCSS) 20%, transparent);
               --font-size: \(fontSize)px;
               --preview-scale: 1.14;
-              --line-height: 1.9;
+              --line-height: \(EditorLineSpacing.previewLineHeight(for: lineSpacingScale));
               --content-inline-padding: 36px;
               --content-top-padding: 58px;
               --content-bottom-padding: 110px;
@@ -1001,6 +1002,19 @@ enum MarkdownHTMLRenderer {
               if (!Number.isFinite(value)) return;
               document.documentElement.style.setProperty('--font-size', value + 'px');
               renderMermaidDiagrams();
+            };
+
+            window.setLineSpacing = function (lineSpacingScale) {
+              const value = Number(lineSpacingScale);
+              if (!Number.isFinite(value)) return;
+              const clamped = Math.min(
+                Math.max(value, \(EditorLineSpacing.minimum)),
+                \(EditorLineSpacing.maximum)
+              );
+              document.documentElement.style.setProperty(
+                '--line-height',
+                \(EditorLineSpacing.previewBaseLineHeight) * clamped
+              );
             };
 
             window.setAppearance = function (backgroundColor, foregroundColor, colorScheme) {

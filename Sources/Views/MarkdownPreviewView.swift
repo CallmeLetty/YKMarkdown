@@ -13,6 +13,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
     var positionRequest: DocumentPositionRequest?
     var themeColorCSS: String
     var fontSize: Double
+    var lineSpacingScale: Double
     var backgroundColorCSS: String
     var foregroundColorCSS: String
     var colorSchemeCSS: String
@@ -67,6 +68,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
         context.coordinator.applyMarkdownFromSourceIfNeeded(markdown)
         context.coordinator.applyThemeColorIfNeeded(themeColorCSS)
         context.coordinator.applyFontSizeIfNeeded(fontSize)
+        context.coordinator.applyLineSpacingIfNeeded(lineSpacingScale)
         context.coordinator.applyAppearanceIfNeeded(.init(parent: self))
 
         if let request = insertImageRequest,
@@ -114,9 +116,11 @@ struct MarkdownPreviewView: NSViewRepresentable {
         private var pendingScrollSourceOffset: Int?
         private var pendingThemeColor: String?
         private var pendingFontSize: Double?
+        private var pendingLineSpacing: Double?
         private var pendingAppearance: PreviewAppearance?
         private var lastAppliedThemeColor = ""
         private var lastAppliedFontSize = 0.0
+        private var lastAppliedLineSpacing = 0.0
         private var lastAppliedAppearance: PreviewAppearance?
 
         init(parent: MarkdownPreviewView) {
@@ -129,8 +133,10 @@ struct MarkdownPreviewView: NSViewRepresentable {
             lastAppliedMarkdown = parent.markdown
             lastAppliedThemeColor = parent.themeColorCSS
             lastAppliedFontSize = parent.fontSize
+            lastAppliedLineSpacing = EditorLineSpacing.clamped(parent.lineSpacingScale)
             lastAppliedAppearance = PreviewAppearance(parent: parent)
             pendingFontSize = nil
+            pendingLineSpacing = nil
             pendingAppearance = nil
             let body = MarkdownHTMLRenderer.bodyHTML(from: parent.markdown)
             let html = MarkdownHTMLRenderer.editableDocument(
@@ -138,6 +144,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 turndownScript: Self.turndownScript,
                 accentColorCSS: parent.themeColorCSS,
                 fontSize: parent.fontSize,
+                lineSpacingScale: parent.lineSpacingScale,
                 backgroundColorCSS: parent.backgroundColorCSS,
                 foregroundColorCSS: parent.foregroundColorCSS,
                 colorSchemeCSS: parent.colorSchemeCSS
@@ -166,6 +173,18 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 return
             }
             let script = "window.setFontSize(\(fontSize));"
+            webView.evaluateJavaScript(script, completionHandler: nil)
+        }
+
+        func applyLineSpacingIfNeeded(_ lineSpacingScale: Double) {
+            let scale = EditorLineSpacing.clamped(lineSpacingScale)
+            guard scale != lastAppliedLineSpacing else { return }
+            lastAppliedLineSpacing = scale
+            guard isPageReady, let webView else {
+                pendingLineSpacing = scale
+                return
+            }
+            let script = "window.setLineSpacing(\(scale));"
             webView.evaluateJavaScript(script, completionHandler: nil)
         }
 
@@ -276,6 +295,11 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 let script = "window.setFontSize(\(pendingFontSize));"
                 webView.evaluateJavaScript(script, completionHandler: nil)
                 self.pendingFontSize = nil
+            }
+            if let pendingLineSpacing {
+                let script = "window.setLineSpacing(\(pendingLineSpacing));"
+                webView.evaluateJavaScript(script, completionHandler: nil)
+                self.pendingLineSpacing = nil
             }
             if let pendingAppearance {
                 webView.evaluateJavaScript(

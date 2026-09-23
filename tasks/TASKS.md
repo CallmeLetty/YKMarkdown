@@ -662,3 +662,14 @@
    Done by: CODEX
    Done at: 2026-09-06T04:26:45Z
 
+61. shared-line-spacing
+   Id: 61-shared-line-spacing
+   Scope: 新增共享行间距设置，并同步应用于 Markdown 源码编辑器与可编辑预览
+   Files: Sources/App/App.swift,Sources/Views/SettingsView.swift,Sources/Views/EditorView.swift,Sources/Views/MarkdownPreviewView.swift,Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Sources/Infrastructure/DesignSystem/AppTypographyTheme.swift,Sources/Features/Editor/MarkdownOutline.swift,Tests/EditorLineSpacingTests.swift,docs/plans/2026-09-23-shared-line-spacing-design.md,docs/plans/2026-09-23-shared-line-spacing.md
+   Note: 完成共享行间距：设置页 80%–130% 滑杆同步更新源码与预览；Swift Testing 4 项通过，严格编译随测试通过；按用户要求未再执行完整构建
+   Detail: tasks/details/61-shared-line-spacing.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-23T04:09:06Z
+   Done by: CODEX
+   Done at: 2026-09-23T04:30:54Z
+
