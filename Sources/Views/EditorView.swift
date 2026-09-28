@@ -45,6 +45,13 @@ struct EditorView: View {
     @State private var searchQuery = ""
     @State private var selectedSearchMatchID: MarkdownSearchMatch.ID?
     @State private var searchNavigationRequest: DocumentSearchNavigationRequest?
+    @State private var editingState: DocumentEditingState
+
+    init(document: Binding<MarkdownDocument>, fileURL: URL?) {
+        _document = document
+        self.fileURL = fileURL
+        _editingState = State(initialValue: DocumentEditingState(text: document.wrappedValue.text))
+    }
 
     var body: some View {
         Group {
@@ -166,7 +173,7 @@ struct EditorView: View {
         }
         .sheet(isPresented: $showUploadSheet) {
             BlogUploadSheet(
-                markdown: document.text,
+                markdown: currentText,
                 fileURL: fileURL,
                 settings: blogSettings,
                 onFinished: handleUploadResult
@@ -193,15 +200,18 @@ struct EditorView: View {
         }
         .onChange(of: fileURL) { _, _ in
             mergeSession = nil
-            lastKnownDiskText = fileURL == nil ? nil : document.text
+            lastKnownDiskText = fileURL == nil ? nil : currentText
             registerOpenSearchDocument()
         }
-        .onChange(of: document.text) { _, _ in
+        .onChange(of: document.text) { _, newText in
+            if newText != editingState.snapshot.text {
+                replaceDocumentText(with: newText, origin: .documentSystem)
+            }
             registerOpenSearchDocument()
             updateScrollAnchorOffsets()
             validateSearchSelection()
             if let documentSourceOffset {
-                self.documentSourceOffset = min(documentSourceOffset, (document.text as NSString).length)
+                self.documentSourceOffset = min(documentSourceOffset, (currentText as NSString).length)
             }
         }
         .onChange(of: layout) { _, _ in
@@ -263,7 +273,7 @@ struct EditorView: View {
     }
 
     private var headings: [MarkdownHeading] {
-        MarkdownOutlineParser.headings(in: document.text)
+        MarkdownOutlineParser.headings(in: currentText)
     }
 
     private var blogSettings: BlogUploadSettings {
@@ -293,7 +303,7 @@ struct EditorView: View {
             }
 
             MarkdownSourceEditor(
-                text: editorTextBinding,
+                snapshot: editingState.snapshot,
                 documentURL: fileURL,
                 fontSize: editorFontSize,
                 lineSpacingScale: editorLineSpacing,
@@ -304,6 +314,7 @@ struct EditorView: View {
                 searchQuery: isSearchVisible ? searchQuery : "",
                 selectedSearchRange: selectedSearchRange,
                 searchNavigationRequest: searchNavigationRequest,
+                onMutation: applyDocumentMutation,
                 onPositionChange: { synchronizePosition(to: $0, from: .source) }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -314,11 +325,9 @@ struct EditorView: View {
 
     private var previewPane: some View {
         MarkdownPreviewView(
-            markdown: document.text,
+            snapshot: editingState.snapshot,
             baseURL: fileURL,
-            onMarkdownChange: { markdown in
-                document.text = markdown
-            },
+            onMutation: applyDocumentMutation,
             onPasteImages: {
                 importPasteboardImages(intoPreview: true)
             },
@@ -340,11 +349,25 @@ struct EditorView: View {
         .accessibilityLabel("Editable Markdown preview")
     }
 
-    private var editorTextBinding: Binding<String> {
-        Binding(
-            get: { document.text },
-            set: { document.text = $0 }
-        )
+    private var currentText: String {
+        editingState.snapshot.text
+    }
+
+    @discardableResult
+    private func applyDocumentMutation(_ mutation: DocumentMutation) -> DocumentMutationResult {
+        let result = editingState.apply(mutation)
+        if case let .applied(snapshot) = result, document.text != snapshot.text {
+            document.text = snapshot.text
+        }
+        return result
+    }
+
+    private func replaceDocumentText(with text: String, origin: DocumentEditOrigin) {
+        applyDocumentMutation(.replacing(
+            snapshot: editingState.snapshot,
+            with: text,
+            origin: origin
+        ))
     }
 
     /// 位置事件的来源；被动跟随的区域不再上报同一次移动。
@@ -358,7 +381,7 @@ struct EditorView: View {
 
     /// 以源码偏移统一更新目录和其他区域，不改变键盘焦点或被动区域的选区。
     private func synchronizePosition(to sourceOffset: Int, from origin: PositionOrigin) {
-        let offset = min(max(sourceOffset, 0), (document.text as NSString).length)
+        let offset = min(max(sourceOffset, 0), (currentText as NSString).length)
         if (origin == .source || origin == .preview), documentSourceOffset == offset { return }
         documentSourceOffset = offset
         if origin != .search {
@@ -376,7 +399,7 @@ struct EditorView: View {
     }
 
     private func updateScrollAnchorOffsets() {
-        scrollAnchorOffsets = MarkdownHTMLRenderer.sourceOffsets(from: document.text)
+        scrollAnchorOffsets = MarkdownHTMLRenderer.sourceOffsets(from: currentText)
     }
 
     private var documentSearchTitle: String {
@@ -411,7 +434,7 @@ struct EditorView: View {
             id: documentSearchID,
             title: documentSearchTitle,
             fileURL: fileURL,
-            text: document.text,
+            text: currentText,
             windowBox: searchWindowBox,
             navigateToMatch: { query, range, scope in
                 navigateToSearchMatch(query: query, range: range, scope: scope)
@@ -507,7 +530,7 @@ struct EditorView: View {
         guard let fileURL, mergeSession == nil else { return }
         do {
             let diskText = try coordinatedDiskText(at: fileURL)
-            let localText = document.text
+            let localText = currentText
             let baseText = lastKnownDiskText ?? localText
 
             switch DocumentThreeWayMerge.refreshDecision(
@@ -520,7 +543,7 @@ struct EditorView: View {
             case .preserveLocal:
                 break
             case let .apply(text, remoteBaseline):
-                document.text = text
+                replaceDocumentText(with: text, origin: .reload)
                 lastKnownDiskText = remoteBaseline
             case let .resolveConflicts(result, remoteBaseline):
                 closeSearch()
@@ -537,7 +560,7 @@ struct EditorView: View {
 
     private func completeMerge() {
         guard let mergeSession, let finalText = mergeSession.finalText else { return }
-        document.text = finalText
+        replaceDocumentText(with: finalText, origin: .merge)
         lastKnownDiskText = mergeSession.remoteText
         self.mergeSession = nil
     }
@@ -548,7 +571,7 @@ struct EditorView: View {
 
     private func syncKnownDiskTextIfNeeded() {
         guard fileURL != nil, lastKnownDiskText == nil else { return }
-        lastKnownDiskText = document.text
+        lastKnownDiskText = currentText
     }
 
     private func coordinatedDiskText(at fileURL: URL) throws -> String {
@@ -576,7 +599,7 @@ struct EditorView: View {
     }
 
     private func beginUpload() {
-        let (_, body) = BlogFrontmatter.parse(from: document.text)
+        let (_, body) = BlogFrontmatter.parse(from: currentText)
         let hasLocalImages = !GitHubBlogUploader.referencedLocalImagePaths(in: body).isEmpty
         if hasLocalImages, fileURL == nil {
             saveFirstMessage = "当前文档引用了本地图片，上传前请先保存 Markdown 文件。"
@@ -663,11 +686,15 @@ struct EditorView: View {
     }
 
     private func appendMarkdown(_ snippet: String) {
-        if document.text.isEmpty || document.text.hasSuffix("\n") {
-            document.text += snippet.trimmingCharacters(in: CharacterSet(charactersIn: "\n")) + "\n"
+        let updatedText: String
+        if currentText.isEmpty || currentText.hasSuffix("\n") {
+            updatedText = currentText
+                + snippet.trimmingCharacters(in: CharacterSet(charactersIn: "\n"))
+                + "\n"
         } else {
-            document.text += snippet
+            updatedText = currentText + snippet
         }
+        replaceDocumentText(with: updatedText, origin: .imageInsertion)
     }
 
     private func handleDrop(providers: [NSItemProvider]) -> Bool {

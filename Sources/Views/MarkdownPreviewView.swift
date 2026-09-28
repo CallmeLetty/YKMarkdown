@@ -4,9 +4,9 @@ import UniformTypeIdentifiers
 import WebKit
 
 struct MarkdownPreviewView: NSViewRepresentable {
-    let markdown: String
+    let snapshot: DocumentSnapshot
     let baseURL: URL?
-    var onMarkdownChange: (String) -> Void
+    var onMutation: (DocumentMutation) -> DocumentMutationResult
     var onPasteImages: () -> Void
     var onDropImages: ([URL]) -> Void
     var insertImageRequest: InsertImageRequest?
@@ -65,7 +65,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
             return
         }
 
-        context.coordinator.applyMarkdownFromSourceIfNeeded(markdown)
+        context.coordinator.receive(snapshot)
         context.coordinator.applyThemeColorIfNeeded(themeColorCSS)
         context.coordinator.applyFontSizeIfNeeded(fontSize)
         context.coordinator.applyLineSpacingIfNeeded(lineSpacingScale)
@@ -108,10 +108,12 @@ struct MarkdownPreviewView: NSViewRepresentable {
         weak var webView: PreviewWKWebView?
         var baseURL: URL?
         var lastAppliedMarkdown = ""
+        var lastAppliedRevision: UInt64 = 0
         var lastInsertToken: UUID?
         var lastPositionToken: UUID?
         private var isPageReady = false
-        private var isUpdatingFromPreview = false
+        private var isPreviewComposing = false
+        private var deferredSnapshot: DocumentSnapshot?
         private var pendingBodyHTML: String?
         private var pendingScrollSourceOffset: Int?
         private var pendingThemeColor: String?
@@ -130,7 +132,8 @@ struct MarkdownPreviewView: NSViewRepresentable {
 
         func loadInitialPage(in webView: WKWebView) {
             isPageReady = false
-            lastAppliedMarkdown = parent.markdown
+            lastAppliedMarkdown = parent.snapshot.text
+            lastAppliedRevision = parent.snapshot.revision
             lastAppliedThemeColor = parent.themeColorCSS
             lastAppliedFontSize = parent.fontSize
             lastAppliedLineSpacing = EditorLineSpacing.clamped(parent.lineSpacingScale)
@@ -138,7 +141,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
             pendingFontSize = nil
             pendingLineSpacing = nil
             pendingAppearance = nil
-            let body = MarkdownHTMLRenderer.bodyHTML(from: parent.markdown)
+            let body = MarkdownHTMLRenderer.bodyHTML(from: parent.snapshot.text)
             let html = MarkdownHTMLRenderer.editableDocument(
                 bodyHTML: body,
                 turndownScript: Self.turndownScript,
@@ -198,11 +201,18 @@ struct MarkdownPreviewView: NSViewRepresentable {
             webView.evaluateJavaScript(Self.appearanceScript(appearance), completionHandler: nil)
         }
 
-        func applyMarkdownFromSourceIfNeeded(_ markdown: String) {
-            guard !isUpdatingFromPreview else { return }
-            guard markdown != lastAppliedMarkdown else { return }
-            lastAppliedMarkdown = markdown
-            let body = MarkdownHTMLRenderer.bodyHTML(from: markdown)
+        /// revision 是正文同步的唯一触发条件；本地预览编辑的回声只确认版本。
+        func receive(_ snapshot: DocumentSnapshot) {
+            guard snapshot.revision != lastAppliedRevision else { return }
+            guard !isPreviewComposing else {
+                deferredSnapshot = snapshot
+                return
+            }
+            lastAppliedRevision = snapshot.revision
+            deferredSnapshot = nil
+            guard snapshot.text != lastAppliedMarkdown else { return }
+            lastAppliedMarkdown = snapshot.text
+            let body = MarkdownHTMLRenderer.bodyHTML(from: snapshot.text)
             guard isPageReady else {
                 pendingBodyHTML = body
                 return
@@ -248,11 +258,37 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 )
                 let normalized = Self.normalizeMarkdown(patched)
                 guard normalized != lastAppliedMarkdown else { return }
-                isUpdatingFromPreview = true
-                lastAppliedMarkdown = normalized
-                parent.onMarkdownChange(normalized)
-                updateSourceOffsets(for: normalized)
-                isUpdatingFromPreview = false
+                let mutation = DocumentMutation(
+                    baseRevision: lastAppliedRevision,
+                    origin: .preview,
+                    change: DocumentTextChange.between(lastAppliedMarkdown, and: normalized)
+                )
+                let result = parent.onMutation(mutation)
+                switch result {
+                case let .applied(snapshot), let .unchanged(snapshot):
+                    lastAppliedRevision = snapshot.revision
+                    lastAppliedMarkdown = snapshot.text
+                    updateSourceOffsets(for: snapshot.text)
+                case let .rejected(snapshot, _):
+                    lastAppliedRevision = snapshot.revision
+                    lastAppliedMarkdown = snapshot.text
+                    let body = MarkdownHTMLRenderer.bodyHTML(from: snapshot.text)
+                    if isPageReady {
+                        setBodyHTML(body)
+                    } else {
+                        pendingBodyHTML = body
+                    }
+                }
+
+            case "compositionStarted":
+                isPreviewComposing = true
+
+            case "compositionEnded":
+                isPreviewComposing = false
+                if let deferredSnapshot {
+                    self.deferredSnapshot = nil
+                    receive(deferredSnapshot)
+                }
 
             case "pasteImages":
                 parent.onPasteImages()

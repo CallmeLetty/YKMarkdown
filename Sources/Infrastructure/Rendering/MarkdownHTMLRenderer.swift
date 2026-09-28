@@ -351,6 +351,7 @@ enum MarkdownHTMLRenderer {
 
             let emitTimer = null;
             let suppressEmit = false;
+            let isComposing = false;
             const headingSelector = 'h1, h2, h3, h4, h5, h6';
             const sourceAnchorSelector = '[data-source-offset]';
             let scrollAnchorFrame = null;
@@ -790,7 +791,7 @@ enum MarkdownHTMLRenderer {
             }
 
             function emitMarkdown() {
-              if (suppressEmit) return;
+              if (suppressEmit || isComposing) return;
               const range = pendingPreviewEdit.range;
               pendingPreviewEdit.range = null;
               if (!range) return;
@@ -830,6 +831,7 @@ enum MarkdownHTMLRenderer {
             }
 
             function reportSelectionPosition() {
+              if (isComposing) return;
               if (!content.contains(document.activeElement)) return;
               const selection = window.getSelection();
               if (!selection || !content.contains(selection.focusNode)) return;
@@ -867,10 +869,26 @@ enum MarkdownHTMLRenderer {
 
             content.addEventListener('input', function () {
               ensureHeadingIDs();
-              scheduleEmit(true);
-              reportSelectionPosition();
+              if (isComposing) {
+                recordPreviewEdit();
+              } else {
+                scheduleEmit(true);
+                reportSelectionPosition();
+              }
             });
             content.addEventListener('beforeinput', rememberEditingRange);
+            content.addEventListener('compositionstart', function () {
+              isComposing = true;
+              post({ type: 'compositionStarted' });
+            });
+            content.addEventListener('compositionend', function () {
+              isComposing = false;
+              clearTimeout(emitTimer);
+              recordPreviewEdit();
+              emitMarkdown();
+              post({ type: 'compositionEnded' });
+              reportSelectionPosition();
+            });
             window.addEventListener('scroll', function () {
               scheduleScrollAnchorReport();
             }, { passive: true });

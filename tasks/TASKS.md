@@ -673,3 +673,14 @@
    Done by: CODEX
    Done at: 2026-09-23T04:30:54Z
 
+62. document-editing-session
+   Id: 62-document-editing-session
+   Scope: 统一 Markdown 编辑状态、输入法组合事务与双编辑面同步
+   Files: Sources/Features/Editor/DocumentEditingSession.swift Sources/Features/Editor/MarkdownOutline.swift Sources/Views/MarkdownPreviewView.swift Sources/Views/EditorView.swift Tests/DocumentEditingSessionTests.swift docs/plans/2026-09-24-document-editing-session-design.md docs/plans/2026-09-24-document-editing-session.md
+   Note: 完成统一 mutation/revision/origin 编辑会话；源码与预览组合输入事务分离；严格应用编译和 build-for-testing 成功，未运行测试；普通源码输入及预览回写 UI 验证通过，真实中文输入源需用户手动复验
+   Detail: tasks/details/62-document-editing-session.md
+   Claimed by: CODEX
+   Claimed at: 2026-09-24T07:37:39Z
+   Done by: CODEX
+   Done at: 2026-09-24T07:57:37Z
+

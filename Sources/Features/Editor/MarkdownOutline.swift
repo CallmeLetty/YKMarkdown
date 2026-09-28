@@ -405,7 +405,7 @@ struct DocumentPositionRequest: Equatable {
 }
 
 struct MarkdownSourceEditor: NSViewRepresentable {
-    @Binding var text: String
+    let snapshot: DocumentSnapshot
     let documentURL: URL?
     let fontSize: Double
     let lineSpacingScale: Double
@@ -416,6 +416,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
     let searchQuery: String
     let selectedSearchRange: NSRange?
     let searchNavigationRequest: DocumentSearchNavigationRequest?
+    let onMutation: (DocumentMutation) -> DocumentMutationResult
     /// 主动滚动、光标及选区变化统一上报源码位置。
     let onPositionChange: (Int) -> Void
 
@@ -433,7 +434,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         let textView = MarkdownTextView()
         textView.documentURL = documentURL
         textView.delegate = context.coordinator
-        textView.string = text
+        textView.string = snapshot.text
         textView.drawsBackground = true
         textView.isRichText = false
         textView.importsGraphics = false
@@ -477,23 +478,18 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             applyAppearance(to: textView, in: scrollView)
             context.coordinator.lastAppliedAppearance = appearance
         }
-        if textView.string != text {
-            let selection = textView.selectedRange()
-            textView.string = text
-            let textLength = (text as NSString).length
-            let selectionLocation = min(selection.location, textLength)
-            let selectionLength = min(selection.length, textLength - selectionLocation)
-            textView.setSelectedRange(NSRange(location: selectionLocation, length: selectionLength))
-        }
+        context.coordinator.receive(snapshot)
         context.coordinator.applySearchHighlights(query: searchQuery, selectedRange: selectedSearchRange)
 
-        if let request = positionRequest,
+        if !textView.hasMarkedText(),
+           let request = positionRequest,
            context.coordinator.lastPositionToken != request.token {
             context.coordinator.lastPositionToken = request.token
             context.coordinator.scroll(toSourceOffset: request.sourceOffset)
         }
 
-        if let request = searchNavigationRequest,
+        if !textView.hasMarkedText(),
+           let request = searchNavigationRequest,
            context.coordinator.lastSearchNavigationToken != request.token {
             context.coordinator.lastSearchNavigationToken = request.token
             context.coordinator.navigateToSearchRange(request.range)
@@ -555,9 +551,12 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         /// 同一轮事件中，光标位置优先于自动滚动产生的视口位置。
         private var pendingSelectionOffset: Int?
         private var previousSelectionRange = NSRange(location: 0, length: 0)
+        private var acceptedSnapshot: DocumentSnapshot
+        private var deferredSnapshot: DocumentSnapshot?
 
         init(parent: MarkdownSourceEditor) {
             self.parent = parent
+            acceptedSnapshot = parent.snapshot
         }
 
         func startObservingScroll() {
@@ -581,6 +580,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             let previous = previousSelectionRange
             previousSelectionRange = range
             guard !isUpdatingView, !isApplyingSyncedScroll,
+                  !textView.hasMarkedText(),
                   textView.window?.firstResponder === textView
             else { return }
             let offset = range.length > 0 && range.location == previous.location
@@ -616,8 +616,48 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         }
 
         func textDidChange(_ notification: Notification) {
-            guard let textView else { return }
-            parent.text = textView.string
+            guard !isUpdatingView, let textView, !textView.hasMarkedText() else { return }
+            let mutation = DocumentMutation(
+                baseRevision: acceptedSnapshot.revision,
+                origin: .source,
+                change: DocumentTextChange.between(acceptedSnapshot.text, and: textView.string)
+            )
+            let result = parent.onMutation(mutation)
+            switch result {
+            case let .applied(snapshot), let .unchanged(snapshot):
+                acceptedSnapshot = snapshot
+                deferredSnapshot = nil
+            case let .rejected(snapshot, _):
+                // 保留原生编辑表面的内容，等待上层显式解决版本冲突。
+                deferredSnapshot = snapshot
+            }
+        }
+
+        /// revision 是正文同步的唯一触发条件；位置、外观等 SwiftUI 刷新不得重设字符串。
+        func receive(_ snapshot: DocumentSnapshot) {
+            guard snapshot.revision != acceptedSnapshot.revision else { return }
+            guard let textView else {
+                acceptedSnapshot = snapshot
+                return
+            }
+            guard !textView.hasMarkedText() else {
+                deferredSnapshot = snapshot
+                return
+            }
+            if deferredSnapshot?.revision == snapshot.revision {
+                return
+            }
+
+            let selection = textView.selectedRange()
+            if textView.string != snapshot.text {
+                textView.string = snapshot.text
+                let textLength = (snapshot.text as NSString).length
+                let selectionLocation = min(selection.location, textLength)
+                let selectionLength = min(selection.length, textLength - selectionLocation)
+                textView.setSelectedRange(NSRange(location: selectionLocation, length: selectionLength))
+            }
+            acceptedSnapshot = snapshot
+            deferredSnapshot = nil
         }
 
         func scroll(toSourceOffset sourceOffset: Int) {
