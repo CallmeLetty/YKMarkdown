@@ -356,34 +356,39 @@ enum MarkdownHTMLRenderer {
             const sourceAnchorSelector = '[data-source-offset]';
             let scrollAnchorFrame = null;
             let pendingPositionOffset = null;
-            let suppressScrollAnchorReport = false;
-            let followGeneration = 0;
+            // 沿用原生定位请求的 token，便于桥接层拒绝定位前已发出的旧消息。
+            let positionRequestToken = '';
+            // 仅真实输入可取得控制权；布局和程序化滚动不会恢复上报。
+            let positionInteractionKind = null;
 
-            // 连续被动定位只由最后一次解除抑制，避免滚动事件反向驱动源码。
+            // 被动跟随一直保持静默，直到用户在本区域进行下一次操作。
             function beginFollowingPosition() {
-              suppressScrollAnchorReport = true;
-              const generation = ++followGeneration;
+              positionInteractionKind = null;
               pendingPositionOffset = null;
               if (scrollAnchorFrame !== null) {
                 cancelAnimationFrame(scrollAnchorFrame);
                 scrollAnchorFrame = null;
               }
-              requestAnimationFrame(function () {
-                requestAnimationFrame(function () {
-                  if (generation === followGeneration) suppressScrollAnchorReport = false;
-                });
-              });
             }
-            // 新的真实输入立即接管位置，不能被上一轮被动跟随的抑制窗口吞掉。
+            // 光标输入和滚动输入分别接管，不把自动滚动解释为新的视口操作。
             function resumeUserPosition(event) {
               if (!event.isTrusted) return;
-              ++followGeneration;
-              suppressScrollAnchorReport = false;
-              pendingPositionOffset = null;
+              if (event.type === 'keydown' && ['Shift', 'Control', 'Alt', 'Meta'].includes(event.key)) return;
+              const kind = event.type === 'wheel' || !content.contains(event.target)
+                ? 'scroll' : 'selection';
+              if (positionInteractionKind !== kind) pendingPositionOffset = null;
+              positionInteractionKind = kind;
             }
             window.addEventListener('wheel', resumeUserPosition, { passive: true });
             content.addEventListener('pointerdown', resumeUserPosition);
             content.addEventListener('keydown', resumeUserPosition);
+            // 原生滚动条位于文档客户区之外，拖动时也应接管视口同步。
+            window.addEventListener('pointerdown', function (event) {
+              if (event.clientX >= document.documentElement.clientWidth
+                  || event.clientY >= document.documentElement.clientHeight) {
+                resumeUserPosition(event);
+              }
+            });
 
             let pendingPreviewEdit = {
               range: null
@@ -823,9 +828,9 @@ enum MarkdownHTMLRenderer {
               });
             }
 
-            // 点击、选区和滚动共用源码块位置；不向其他区域传递键盘焦点。
+            // 光标位置只在光标操作期间上报，自动滚动不覆盖选区语义。
             function reportPosition(sourceOffset) {
-              if (suppressScrollAnchorReport || sourceOffset === null || !Number.isFinite(sourceOffset)) return;
+              if (positionInteractionKind !== 'selection' || sourceOffset === null || !Number.isFinite(sourceOffset)) return;
               pendingPositionOffset = sourceOffset;
               scheduleScrollAnchorReport();
             }
@@ -855,14 +860,15 @@ enum MarkdownHTMLRenderer {
             }
 
             function scheduleScrollAnchorReport() {
-              if (suppressScrollAnchorReport) return;
+              if (positionInteractionKind === null) return;
               if (scrollAnchorFrame !== null) return;
               scrollAnchorFrame = requestAnimationFrame(function () {
                 scrollAnchorFrame = null;
-                const sourceOffset = pendingPositionOffset ?? visibleSourceOffset();
+                const kind = positionInteractionKind;
+                const sourceOffset = kind === 'selection' ? pendingPositionOffset : visibleSourceOffset();
                 pendingPositionOffset = null;
-                if (!suppressScrollAnchorReport && sourceOffset !== null) {
-                  post({ type: 'positionChanged', sourceOffset: sourceOffset });
+                if (kind !== null && sourceOffset !== null) {
+                  post({ type: 'positionChanged', sourceOffset: sourceOffset, positionToken: positionRequestToken });
                 }
               });
             }
@@ -890,7 +896,7 @@ enum MarkdownHTMLRenderer {
               reportSelectionPosition();
             });
             window.addEventListener('scroll', function () {
-              scheduleScrollAnchorReport();
+              if (positionInteractionKind === 'scroll') scheduleScrollAnchorReport();
             }, { passive: true });
 
             content.addEventListener('paste', function (event) {
@@ -991,9 +997,11 @@ enum MarkdownHTMLRenderer {
               });
             };
 
-            window.scrollToSourceOffset = function (requestedOffset) {
+            window.scrollToSourceOffset = function (requestedOffset, requestToken) {
               const sourceOffset = Number(requestedOffset);
               if (!Number.isFinite(sourceOffset)) return;
+              positionRequestToken = requestToken || '';
+              beginFollowingPosition();
               const anchors = sourceAnchors();
               if (!anchors.length) return;
               let target = anchors[0];
@@ -1003,7 +1011,6 @@ enum MarkdownHTMLRenderer {
                 }
               });
               const targetTop = target.getBoundingClientRect().top + window.scrollY - 20;
-              beginFollowingPosition();
               window.scrollTo({ top: Math.max(0, targetTop), behavior: 'auto' });
             };
 

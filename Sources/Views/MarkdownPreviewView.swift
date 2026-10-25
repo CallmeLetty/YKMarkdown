@@ -132,6 +132,8 @@ struct MarkdownPreviewView: NSViewRepresentable {
 
         func loadInitialPage(in webView: WKWebView) {
             isPageReady = false
+            // 新页面尚未接收定位请求，其初始回报也使用空 token。
+            lastPositionToken = nil
             lastAppliedMarkdown = parent.snapshot.text
             lastAppliedRevision = parent.snapshot.revision
             lastAppliedThemeColor = parent.themeColorCSS
@@ -231,7 +233,8 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 pendingScrollSourceOffset = sourceOffset
                 return
             }
-            let script = "window.scrollToSourceOffset(\(sourceOffset));"
+            let token = Self.jsString(lastPositionToken?.uuidString ?? "")
+            let script = "window.scrollToSourceOffset(\(sourceOffset), \(token));"
             webView.evaluateJavaScript(script, completionHandler: nil)
         }
 
@@ -303,7 +306,10 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 }
 
             case "positionChanged":
-                if let sourceOffset = body["sourceOffset"] as? NSNumber {
+                // 使用已有定位 token 校验因果关系，拒绝搜索跳转前排队的旧消息。
+                if let sourceOffset = body["sourceOffset"] as? NSNumber,
+                   let token = body["positionToken"] as? String,
+                   token == (lastPositionToken?.uuidString ?? "") {
                     parent.onPositionChange(sourceOffset.intValue)
                 }
 

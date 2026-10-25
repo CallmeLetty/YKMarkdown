@@ -315,7 +315,12 @@ struct EditorView: View {
                 selectedSearchRange: selectedSearchRange,
                 searchNavigationRequest: searchNavigationRequest,
                 onMutation: applyDocumentMutation,
-                onPositionChange: { synchronizePosition(to: $0, from: .source) }
+                onPositionChange: { synchronizePosition(to: $0, from: .source) },
+                onSearchNavigationApplied: {
+                    if searchNavigationRequest?.token == $0 {
+                        searchNavigationRequest = nil
+                    }
+                }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(typographyBackgroundColor)
@@ -382,19 +387,31 @@ struct EditorView: View {
     /// 以源码偏移统一更新目录和其他区域，不改变键盘焦点或被动区域的选区。
     private func synchronizePosition(to sourceOffset: Int, from origin: PositionOrigin) {
         let offset = min(max(sourceOffset, 0), (currentText as NSString).length)
-        if (origin == .source || origin == .preview), documentSourceOffset == offset { return }
+        let isExplicitNavigation = origin == .outline || origin == .search
+        // 搜索请求在源码完成选区定位后才消费，旧位置回报不得撤销待执行的跳转。
+        guard isExplicitNavigation || searchNavigationRequest == nil else { return }
         documentSourceOffset = offset
-        if origin != .search {
+        if origin == .outline {
             searchNavigationRequest = nil
         }
-        let request = DocumentPositionRequest(token: UUID(), sourceOffset: offset)
+        // 光标保留精确位置供目录使用，对侧仅按语义块跟随，段内移动不重复滚动。
+        let targetOffset = isExplicitNavigation
+            ? offset
+            : scrollAnchorOffsets.last(where: { $0 <= offset }) ?? offset
+        let request = DocumentPositionRequest(token: UUID(), sourceOffset: targetOffset)
         if origin != .source && origin != .search {
-            sourcePositionRequest = request
+            if isExplicitNavigation || sourcePositionRequest?.sourceOffset != targetOffset {
+                sourcePositionRequest = request
+            }
         } else {
             sourcePositionRequest = nil
         }
         if origin != .preview {
-            previewPositionRequest = request
+            if isExplicitNavigation || previewPositionRequest?.sourceOffset != targetOffset {
+                previewPositionRequest = request
+            }
+        } else {
+            previewPositionRequest = nil
         }
     }
 

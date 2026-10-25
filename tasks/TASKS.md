@@ -684,3 +684,14 @@
    Done by: CODEX
    Done at: 2026-09-24T07:57:37Z
 
+65. fix-position-sync-feedback
+   Id: 65-fix-position-sync-feedback
+   Scope: 区分光标与滚动同步，以真实输入接管位置控制，移除时间窗式被动回传并避免重复全文样式刷新
+   Files: Sources/Features/Editor/MarkdownOutline.swift,Sources/Views/EditorView.swift,Sources/Views/MarkdownPreviewView.swift,Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests/PositionSyncTests.js
+   Note: 修正预览去重失效、连续输入事件丢失、滚动坐标换算和搜索请求消费；复用已有定位 token 过滤旧桥接消息，未新增接管状态或时间窗；9 项脚本回归和差异检查通过，原生路径仅静态检查，未编译或运行原生测试、SwiftLint
+   Detail: tasks/details/65-fix-position-sync-feedback.md
+   Claimed by: CODEX
+   Claimed at: 2026-10-25T02:25:17Z
+   Done by: CODEX
+   Done at: 2026-10-25T02:27:44Z
+
