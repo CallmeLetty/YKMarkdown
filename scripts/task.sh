@@ -13,7 +13,7 @@ Examples:
   scripts/task.sh status --mine
   scripts/task.sh status --agent CODEX
   scripts/task.sh next
-  scripts/task.sh plan editor-hud-overlay-rework --scope "UI" --files "Sources/ContentView.swift" --note "Initial plan"
+  scripts/task.sh plan editor-hud-overlay-rework --scope "UI" --files "Sources/ContentView.swift" --note "Initial plan" --detail
   scripts/task.sh finished --last-24h
   scripts/task.sh upcoming --limit 15
   scripts/task.sh blocked --stale-hours 8
@@ -273,10 +273,9 @@ write_tasks() {
       fi
 
       detail_path="${details[$i]}"
-      if [[ -z "$detail_path" ]]; then
-        detail_path="tasks/details/${ids[$i]}.md"
+      if [[ -n "$detail_path" && -f "$PROJECT_ROOT/$detail_path" ]]; then
+        echo "   Detail: $detail_path"
       fi
-      echo "   Detail: $detail_path"
 
       if [[ -n "${claimed_bys[$i]}" ]]; then
         echo "   Claimed by: ${claimed_bys[$i]}"
@@ -920,7 +919,6 @@ case "$cmd" in
       notes[$idx]="$note"
     fi
 
-    ensure_detail_file "$idx"
     write_tasks
 
     echo "Claimed: ${numbers[$idx]}. ${slugs[$idx]}"
@@ -965,7 +963,6 @@ case "$cmd" in
       notes[$idx]="$note"
     fi
 
-    ensure_detail_file "$idx"
     write_tasks
 
     echo "Done: ${numbers[$idx]}. ${slugs[$idx]}"
@@ -988,6 +985,7 @@ case "$cmd" in
     scope=""
     files=""
     note=""
+    create_detail=0
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --scope)
@@ -1001,6 +999,10 @@ case "$cmd" in
         --note)
           note="$2"
           shift 2
+          ;;
+        --detail)
+          create_detail=1
+          shift
           ;;
         *)
           shift
@@ -1028,10 +1030,13 @@ case "$cmd" in
     claimed_ats+=("")
     done_bys+=("")
     done_ats+=("")
-    details+=("tasks/details/${id}.md")
+    details+=("")
 
     idx=$((${#numbers[@]} - 1))
-    ensure_detail_file "$idx"
+    if (( create_detail == 1 )); then
+      details[$idx]="tasks/details/${id}.md"
+      ensure_detail_file "$idx"
+    fi
     write_tasks
 
     echo "${number}.${slug}"

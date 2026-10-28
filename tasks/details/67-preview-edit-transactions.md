@@ -1,6 +1,6 @@
-# 64-preview-edit-transactions
+# 67-preview-edit-transactions
 
-- Number: 64
+- Number: 67
 - Slug: preview-edit-transactions
 
 ## Notes

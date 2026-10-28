@@ -7,7 +7,6 @@
    Scope: Replace comma-separated tag field in BlogUploadSheet with a dropdown that can select existing repo tags or create new ones
    Files: Sources/BlogUploadSheet.swift,Sources/GitHubBlogUploader.swift,Tests/AppTests.swift
    Note: Tag picker with existing-repo dropdown + create-new; fetchExistingTags from content/*.md; make test passed
-   Detail: tasks/details/1-blog-tag-dropdown.md
    Claimed by: CURSOR
    Claimed at: 2026-07-25T03:18:35Z
    Done by: CURSOR
@@ -18,7 +17,6 @@
    Scope: Allow blog upload without local save when markdown has no local image refs; keep save-required when images exist
    Files: Sources/EditorView.swift,Sources/GitHubBlogUploader.swift,Sources/BlogUploadSheet.swift
    Note: No local images: upload without save; with local images: still require save. make test passed
-   Detail: tasks/details/2-allow-upload-without-save-if-no-images.md
    Claimed by: CURSOR
    Claimed at: 2026-07-25T07:00:43Z
    Done by: CURSOR
@@ -29,7 +27,6 @@
    Scope: Clarify invalid slug error/UI copy to mention lowercase letters, digits, and hyphens
    Files: Sources/GitHubBlogUploader.swift,Sources/BlogUploadSheet.swift
    Note: Updated slug field label and invalid-slug error to mention lowercase + example
-   Detail: tasks/details/3-clarify-slug-validation-message.md
    Claimed by: CURSOR
    Claimed at: 2026-08-09T02:01:15Z
    Done by: CURSOR
@@ -40,7 +37,6 @@
    Scope: Make Markdown preview horizontal rules come only from explicit Markdown separators
    Files: Sources/MarkdownHTMLRenderer.swift,Tests/AppTests.swift
    Note: Finished: removed h1/h2 bottom borders and restricted horizontal-rule parsing to exact ---; no unit tests per user request; diff check passed
-   Detail: tasks/details/4-remove-heading-bottom-borders.md
    Claimed by: CODEX
    Claimed at: 2026-08-11T02:28:50Z
    Done by: CODEX
@@ -51,7 +47,6 @@
    Scope: Generate a full-bleed macOS app icon master based on the provided gothic panda character
    Files: Resources/AppIcon-panda-master.png
    Note: Generated and saved 1024x1024 opaque full-bleed panda app icon master; visually inspected; existing AppIcon left unchanged
-   Detail: tasks/details/5-generate-panda-app-icon.md
    Claimed by: CODEX
    Claimed at: 2026-08-11T02:35:38Z
    Done by: CODEX
@@ -62,7 +57,6 @@
    Scope: Brighten the panda app icon and make Markdown identity unmistakable
    Files: Resources/AppIcon-panda-master-v2.png
    Note: Generated brighter 1024x1024 opaque v2 icon with prominent white M-down-arrow Markdown mark; visually inspected; v1 preserved
-   Detail: tasks/details/6-revise-panda-app-icon-markdown.md
    Claimed by: CODEX
    Claimed at: 2026-08-11T02:38:34Z
    Done by: CODEX
@@ -73,7 +67,6 @@
    Scope: Adjust v2 icon background to a balanced macaron blue while preserving panda and Markdown mark
    Files: Resources/AppIcon-panda-master-v3.png
    Note: Generated 1024x1024 opaque v3 with balanced low-saturation macaron-blue background; preserved panda and M-down-arrow mark; visually inspected
-   Detail: tasks/details/7-revise-panda-app-icon-macaron-blue.md
    Claimed by: CODEX
    Claimed at: 2026-08-11T03:26:41Z
    Done by: CODEX
@@ -84,7 +77,6 @@
    Scope: Change panda accent colors from purple to deep navy blue while preserving v3 design
    Files: Resources/AppIcon-panda-master-v4.png
    Note: Generated 1024x1024 opaque v4; recolored irises, inner ears, hand pads, and foot pads from purple to deep navy; preserved macaron-blue background and M-down-arrow; visually inspected
-   Detail: tasks/details/8-revise-panda-app-icon-navy-accents.md
    Claimed by: CODEX
    Claimed at: 2026-08-11T03:59:06Z
    Done by: CODEX
@@ -95,7 +87,6 @@
    Scope: Replace the macOS AppIcon asset set with the approved macaron-blue panda Markdown icon
    Files: Sources/Assets.xcassets/AppIcon.appiconset/*.png
    Note: Applied approved v4 master to all 10 macOS AppIcon PNG slots; dimensions and opacity validated; actool produced AppIcon.icns and Assets.car successfully; no unit tests requested
-   Detail: tasks/details/9-apply-panda-app-icon-v4.md
    Claimed by: CODEX
    Claimed at: 2026-08-11T04:05:55Z
    Done by: CODEX
@@ -106,7 +97,6 @@
    Scope: Add a global collapsible, resizable Markdown heading outline to the left of every editor layout
    Files: Sources/EditorView.swift,Sources/MarkdownPreviewView.swift,Sources/MarkdownHTMLRenderer.swift,Sources/MarkdownOutline.swift,Tests/AppTests.swift
    Note: Finished global collapsible Markdown outline sidebar with live heading hierarchy, source/preview navigation and active highlighting; default outline/source/preview ratio 2:4:4; removed outline header divider; no tests per user preference; prior strict compilation succeeded and final diff check passed
-   Detail: tasks/details/10-markdown-outline-sidebar.md
    Claimed by: CODEX
    Claimed at: 2026-08-11T07:04:25Z
    Done by: CODEX
@@ -117,7 +107,6 @@
    Scope: Add configurable Markdown document opening mode with same-window tabs by default and optional separate windows
    Files: Sources/App.swift,Sources/EditorView.swift,Sources/SettingsView.swift,Tests/AppTests.swift
    Note: Finished configurable document opening mode: default same-window tabs via AppKit tabbing, optional separate windows, current-focused document commands; git diff --check passed; no build/test per project preference
-   Detail: tasks/details/11-multi-document-tabs.md
    Claimed by: CODEX
    Claimed at: 2026-08-12T00:20:50Z
    Done by: CODEX
@@ -128,7 +117,6 @@
    Scope: Actively group simultaneously opened Markdown document windows into tabs when tab opening mode is selected
    Files: Sources/DocumentOpeningMode.swift,tasks/TASKS.md
    Note: Fixed simultaneous multi-file open by actively adding new document windows to the existing document tab group in tabs mode; removed async window polling; git diff --check passed; no build/test per project preference
-   Detail: tasks/details/12-fix-document-tab-grouping.md
    Claimed by: CODEX
    Claimed at: 2026-08-12T00:26:52Z
    Done by: CODEX
@@ -139,7 +127,6 @@
    Scope: Add system/custom app theme color setting and apply it to native UI plus Markdown preview accents
    Files: Sources/AppThemeColor.swift,Sources/App.swift,Sources/EditorView.swift,Sources/SettingsView.swift,Sources/MarkdownPreviewView.swift,Sources/MarkdownHTMLRenderer.swift
    Note: Added follow-system/custom theme color setting with live native UI, outline highlight, preview link, and focus updates; strict build succeeded; no tests per user preference
-   Detail: tasks/details/13-configurable-theme-color.md
    Claimed by: CODEX
    Claimed at: 2026-08-12T11:49:41Z
    Done by: CODEX
@@ -150,7 +137,6 @@
    Scope: Expand Markdown outline row hit target to full row width
    Files: Sources/MarkdownOutline.swift
    Note: Added full-row contentShape to outline row buttons; not built or linted per project instructions
-   Detail: tasks/details/14-fix-outline-row-hit-area.md
    Claimed by: CODEX
    Claimed at: 2026-08-12T15:52:09Z
    Done by: CODEX
@@ -161,7 +147,6 @@
    Scope: Add toolbar action to reload the current Markdown document from disk with overwrite confirmation
    Files: Sources/EditorView.swift
    Note: Added toolbar refresh action that reloads saved/opened documents from disk with overwrite confirmation; not built per project instructions
-   Detail: tasks/details/15-refresh-current-document.md
    Claimed by: CODEX
    Claimed at: 2026-08-12T16:11:40Z
    Done by: CODEX
@@ -172,7 +157,6 @@
    Scope: Move current document reload action from toolbar into active document titlebar accessory
    Files: Sources/EditorView.swift,Sources/DocumentOpeningMode.swift
    Note: Moved reload action into current document titlebar accessory; direct reload when no local conflict, confirmation only before overwriting local edits; not built per project instructions
-   Detail: tasks/details/16-move-refresh-to-titlebar.md
    Claimed by: CODEX
    Claimed at: 2026-08-12T16:33:57Z
    Done by: CODEX
@@ -183,7 +167,6 @@
    Scope: Fix Swift main actor isolation errors in titlebar reload accessory
    Files: Sources/DocumentOpeningMode.swift
    Note: Fixed Swift 6 main actor isolation for titlebar accessory and corrected NSButton API; macOS xcodebuild succeeded
-   Detail: tasks/details/17-fix-titlebar-main-actor.md
    Claimed by: CODEX
    Claimed at: 2026-08-12T16:39:12Z
    Done by: CODEX
@@ -194,7 +177,6 @@
    Scope: Move reload action from titlebar accessory back into toolbar immediately after outline button
    Files: Sources/EditorView.swift,Sources/DocumentOpeningMode.swift
    Note: Moved reload button next to outline toolbar button, removed titlebar accessory code, and verified macOS build succeeded
-   Detail: tasks/details/18-move-refresh-next-to-outline.md
    Claimed by: CODEX
    Claimed at: 2026-08-13T00:17:59Z
    Done by: CODEX
@@ -205,7 +187,6 @@
    Scope: Document real-time Markdown disk change monitoring options, chosen approach, conflict policy, and implementation steps
    Files: docs/plans/2026-08-16-file-change-monitoring-design.md
    Note: Added Chinese design doc covering NSFilePresenter, DispatchSource, FSEvent tradeoffs, recommended parent-directory DispatchSource approach, conflict handling, and implementation steps; no build needed
-   Detail: tasks/details/19-document-file-change-monitoring.md
    Claimed by: CODEX
    Claimed at: 2026-08-16T02:56:25Z
    Done by: CODEX
@@ -216,7 +197,6 @@
    Scope: Add standard Command+Plus and Command+Minus editor font size controls with persisted 11–22 pt limits
    Files: Sources/App.swift,Sources/EditorView.swift,Sources/SettingsView.swift,Tests/AppTests.swift,docs/plans/2026-08-13-editor-font-size-shortcuts-design.md
    Note: Added Format-menu Command+Plus/Command+Minus controls backed by shared persisted 11–22 pt editor font settings, centralized bounds with unit coverage, and verified strict macOS build succeeded; tests and SwiftLint not run per user preference
-   Detail: tasks/details/19-editor-font-size-shortcuts.md
    Claimed by: CODEX
    Claimed at: 2026-08-13T03:31:12Z
    Done by: CODEX
@@ -227,7 +207,6 @@
    Scope: Make Command+Plus and Command+Minus update both source editor and editable Markdown preview without reloading
    Files: Sources/EditorView.swift,Sources/MarkdownPreviewView.swift,Sources/MarkdownHTMLRenderer.swift,Tests/AppTests.swift,docs/plans/2026-08-13-editor-font-size-shortcuts-design.md
    Note: Synchronized persisted font size into Markdown preview CSS with live JavaScript updates that preserve page state; strict macOS build succeeded; tests and SwiftLint not run per user preference
-   Detail: tasks/details/20-sync-preview-font-size.md
    Claimed by: CODEX
    Claimed at: 2026-08-13T03:36:53Z
    Done by: CODEX
@@ -238,7 +217,6 @@
    Scope: Reorganize Sources into App, Views, Features, and Infrastructure folders without changing behavior
    Files: Sources,project.yml,docs/plans/2026-08-14-source-folder-organization.md
    Note: Reorganized Sources into App, Views, Features, and Infrastructure folders; updated Info.plist paths; strict macOS build succeeded; file count and unchanged contents verified; tests and SwiftLint not run per user preference
-   Detail: tasks/details/21-source-folder-organization.md
    Claimed by: CODEX
    Claimed at: 2026-08-14T03:07:05Z
    Done by: CODEX
@@ -271,7 +249,6 @@
    Scope: Move preview edit pitfall doc into docs issue-notes folder and add old/new implementation snippets
    Files: docs/问题记录/预览编辑 Markdown 回写问题记录.md,tasks/TASKS.md,tasks/details/25-move-preview-edit-doc-to-issue-notes.md
    Note: Moved preview edit pitfall doc into docs/问题记录 and added old/new implementation snippets; git diff --check passed; no SwiftLint/xcodebuild run
-   Detail: tasks/details/25-move-preview-edit-doc-to-issue-notes.md
    Claimed by: CODEX
    Claimed at: 2026-08-18T15:44:08Z
    Done by: CODEX
@@ -282,7 +259,6 @@
    Scope: 实现 Cmd+F 当前源码搜索、Cmd+Shift+F 全部已打开文档搜索、高亮与上一条/下一条跳转
    Files: Sources/Views/EditorView.swift Sources/Features/Editor
    Note: Finished Cmd+F current-source search and Cmd+Shift+F open-document search with NSTextView highlights and previous/next navigation; git diff --check passed; SwiftLint/xcodebuild/tests not run per project instructions
-   Detail: tasks/details/26-document-search-shortcuts.md
    Claimed by: CODEX
    Claimed at: 2026-08-20T00:45:07Z
    Done by: CODEX
@@ -293,7 +269,6 @@
    Scope: 修复搜索条窄宽度下输入框被挤压导致搜索文本不可见
    Files: Sources/Views/EditorView.swift
    Note: Fixed search bar compression with adaptive one-line/two-line layout and protected search field width; git diff --check passed; SwiftLint/xcodebuild/tests not run per project instructions
-   Detail: tasks/details/27-fix-search-bar-layout.md
    Claimed by: CODEX
    Claimed at: 2026-08-20T01:00:27Z
    Done by: CODEX
@@ -304,7 +279,6 @@
    Scope: 将 DocumentSearchBar 从 EditorView 抽到独立 View 文件并补 Preview
    Files: Sources/Views/EditorView.swift Sources/Views/DocumentSearchBar.swift
    Note: Extracted DocumentSearchBar into Sources/Views/DocumentSearchBar.swift and added wide/narrow SwiftUI previews; git diff --check passed; SwiftLint/xcodebuild/tests not run per project instructions
-   Detail: tasks/details/28-extract-document-search-bar-view.md
    Claimed by: CODEX
    Claimed at: 2026-08-20T01:03:37Z
    Done by: CODEX
@@ -315,7 +289,6 @@
    Scope: 修复分栏模式下搜索栏过早换行和操作组错位
    Files: Sources/Views/DocumentSearchBar.swift,Sources/Features/Editor/MarkdownOutline.swift
    Note: 搜索栏常规分栏宽度保持紧凑单行，极窄布局操作组靠右；普通命中与当前命中高亮颜色已互换；macOS Debug build succeeded，未运行测试或 SwiftLint
-   Detail: tasks/details/29-compact-search-bar-layout.md
    Claimed by: CODEX
    Claimed at: 2026-08-20T03:21:39Z
    Done by: CODEX
@@ -348,7 +321,6 @@
    Scope: Remove unused merge-session state and coordinate refresh reads with the document system
    Files: Sources/Features/Editor/DocumentMergeSession.swift,Sources/Views/DocumentMergeConflictView.swift,Sources/Views/EditorView.swift,Tests/AppTests.swift,docs/plans/2026-08-21-manual-document-three-way-merge.md
    Note: Removed unused originalLocalText state and call-site arguments; refresh now uses NSFileCoordinator .withoutChanges so disk reads remain coordinated without saving local edits first; strict macOS build succeeded; tests and SwiftLint not run per user preference
-   Detail: tasks/details/32-cleanup-document-refresh-coordination.md
    Claimed by: CODEX
    Claimed at: 2026-08-21T03:57:52Z
    Done by: CODEX
@@ -359,7 +331,6 @@
    Scope: 在仓库规则中明确 Git 提交具体描述必须使用中文
    Files: AGENTS.md,tasks/TASKS.md,tasks/details
    Note: 已在 AGENTS.md 记录提交信息规则：允许英文类型前缀，具体描述必须使用中文；纯文档改动，git diff --check 通过，无需编译或测试
-   Detail: tasks/details/33-chinese-commit-descriptions.md
    Claimed by: CODEX
    Claimed at: 2026-08-21T04:05:10Z
    Done by: CODEX
@@ -381,7 +352,6 @@
    Scope: 为温润写作型、现代极简型和程序员编辑器型排版各制作可独立打开的 HTML Demo，并提供统一对比入口
    Files: demos/typography/index.html,demos/typography/writing.html,demos/typography/minimal.html,demos/typography/developer.html
    Note: 完成三套独立 HTML 排版 Demo 和统一切换入口；浏览器验证三页加载、方案切换、桌面与 760px 窄窗口布局均正常，独立页面无控制台错误；仅静态 HTML，未运行 App build/test
-   Detail: tasks/details/35-typography-html-demos.md
    Claimed by: CODEX
    Claimed at: 2026-08-28T03:42:29Z
    Done by: CODEX
@@ -403,7 +373,6 @@
    Scope: 在设置中提供温润写作、现代极简、程序员编辑器三种排版主题，并提供统一作用于编辑区和预览区的自定义背景色与自动文字对比
    Files: Sources/Infrastructure/DesignSystem/AppTypographyTheme.swift,Sources/Views/SettingsView.swift,Sources/Views/EditorView.swift,Sources/Features/Editor/MarkdownOutline.swift,Sources/Views/MarkdownPreviewView.swift,Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests/AppTests.swift,docs/plans/2026-08-28-typography-themes-design.md,docs/plans/2026-08-28-typography-themes.md
    Note: 完成三套排版主题、自定义背景与自动对比色；应用及测试目标均编译成功，界面验收通过；按约定未运行测试或 SwiftLint。Xcode beta 在写入 xcresult 后发生已知 Trace/BPT trap，但日志已明确 BUILD SUCCEEDED 与 TEST BUILD SUCCEEDED
-   Detail: tasks/details/37-typography-themes.md
    Claimed by: CODEX
    Claimed at: 2026-08-28T04:12:45Z
    Done by: CODEX
@@ -414,7 +383,6 @@
    Scope: 仅保留温润写作排版，移除现代极简和程序员主题，并消除滚动同步时重复应用编辑器外观与不必要的 Mermaid 重绘
    Files: Sources/Infrastructure/DesignSystem/AppTypographyTheme.swift,Sources/Views/SettingsView.swift,Sources/Views/EditorView.swift,Sources/Features/Editor/MarkdownOutline.swift,Sources/Views/MarkdownPreviewView.swift,Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests/AppTests.swift,docs/plans/2026-08-28-single-writing-theme-scroll-performance.md
    Note: 仅保留温润写作与自定义背景；移除极简/程序员主题及对应 demo；滚动热路径增加编辑器外观缓存，预览仅在明暗变化时重绘 Mermaid；应用与测试目标编译成功，2.28 万字符长文连续滚动 69-134ms；按约定未运行测试或 SwiftLint
-   Detail: tasks/details/38-single-writing-theme-scroll-performance.md
    Claimed by: CODEX
    Claimed at: 2026-08-28T06:39:38Z
    Done by: CODEX
@@ -425,7 +393,6 @@
    Scope: Add Show in Finder to source and preview document context menus
    Files: Sources/Features/Editor/MarkdownOutline.swift Sources/Views/MarkdownPreviewView.swift Sources/Views/EditorView.swift
    Note: Added Show in Finder to source NSTextView and preview WKWebView context menus while preserving native menu entries; git diff --check passed; xcodebuild/SwiftLint not run per project preference
-   Detail: tasks/details/34-add-show-in-finder-context-menu.md
    Claimed by: CODEX
    Claimed at: 2026-08-29T00:46:40Z
    Done by: CODEX
@@ -436,7 +403,6 @@
    Scope: Make preview content stretch with the pane and scale Mermaid diagrams to the preview width with a large-view overlay
    Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests/AppTests.swift
    Note: Finished responsive preview width and Mermaid preview scaling with large-view overlay; git diff --check and extracted preview JS node --check passed; SwiftLint/xcodebuild/tests not run per project preference
-   Detail: tasks/details/40-responsive-preview-mermaid-large-view.md
    Claimed by: CODEX
    Claimed at: 2026-08-29T01:13:02Z
    Done by: CODEX
@@ -447,7 +413,6 @@
    Scope: Record the preview context menu Show in Finder issue under docs/问题记录
    Files: docs/问题记录/预览区右键菜单注入问题记录.md tasks/TASKS.md tasks/details
    Note: Added preview context menu issue note under docs/问题记录; documentation-only change; git diff --check passed after trimming task file whitespace; no build/test needed
-   Detail: tasks/details/41-document-preview-context-menu-issue.md
    Claimed by: CODEX
    Claimed at: 2026-08-30T02:16:55Z
    Done by: CODEX
@@ -458,7 +423,6 @@
    Scope: Merge docs/问题记录 directory into one docs/问题记录.md and add Swift 6 isolation note
    Files: docs/问题记录.md docs/问题记录 tasks/TASKS.md tasks/details
    Note: Consolidated docs/问题记录 into docs/问题记录.md, added Swift 6 isolation issue with original/fixed code snippets, and removed the old issue-notes folder; documentation-only change; no build/test needed
-   Detail: tasks/details/42-consolidate-issue-notes.md
    Claimed by: CODEX
    Claimed at: 2026-08-31T00:29:26Z
    Done by: CODEX
@@ -469,7 +433,6 @@
    Scope: Make editable Markdown preview open links only in Command-click mode while keeping normal clicks editable
    Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests/AppTests.swift
    Note: Finished Command-modified preview link activation; ordinary link clicks stay editable; git diff review done; SwiftLint/xcodebuild/tests not run per project preference
-   Detail: tasks/details/43-preview-command-link-open.md
    Claimed by: CODEX
    Claimed at: 2026-08-31T00:34:09Z
    Done by: CODEX
@@ -480,7 +443,6 @@
    Scope: 修复预览区编辑表格后列表和分隔行 Markdown 被错误重排
    Files: Sources/Views/MarkdownPreviewView.swift,Sources/Infrastructure/Rendering/TurndownScript.swift,Resources/turndown.js
    Note: 修复预览区表格编辑退化为全文回写时的格式破坏：缓存编辑块、列表 Turndown 使用单空格 marker、表格回写保留原分隔行；swiftc typecheck 通过，临时回归检查通过；未运行 xcodebuild/SwiftLint
-   Detail: tasks/details/44-preview-edit-list-table-spacing.md
    Claimed by: CODEX
    Claimed at: 2026-08-31T23:46:01Z
    Done by: CODEX
@@ -491,7 +453,6 @@
    Scope: 记录预览区表格编辑导致列表和表格格式漂移的问题
    Files: docs/问题记录.md
    Note: 已在 docs/问题记录.md 记录预览区表格编辑导致列表 marker 空格和表格分隔行被重写的问题；文档-only，未运行构建
-   Detail: tasks/details/45-document-preview-table-edit-issue.md
    Claimed by: CODEX
    Claimed at: 2026-09-01T00:00:29Z
    Done by: CODEX
@@ -502,7 +463,6 @@
    Scope: 移除预览编辑的全文 Markdown 回写，改为单块/范围回写
    Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Sources/Views/MarkdownPreviewView.swift,Tests/AppTests.swift,docs/问题记录.md
    Note: 移除预览编辑全文 markdownChanged 回写，改为 markdownRangeChanged 范围 patch；剪切、普通粘贴、跨块编辑、插图都走范围回写；清理此前 lastEditingBlock/requiresFullEmit 兜底；swiftc typecheck 和临时回归检查通过；未运行 xcodebuild/SwiftLint
-   Detail: tasks/details/46-preview-edit-range-patch-no-full-emit.md
    Claimed by: CODEX
    Claimed at: 2026-09-02T22:38:24Z
    Done by: CODEX
@@ -513,7 +473,6 @@
    Scope: 澄清问题记录中预览编辑三代回写实现的当前/历史关系
    Files: docs/问题记录.md
    Note: 已澄清 docs/问题记录.md 中最早全文回写、中间块级回写、当前范围回写三段代码的历史/当前关系；文档-only，未运行构建
-   Detail: tasks/details/47-clarify-preview-edit-doc-history.md
    Claimed by: CODEX
    Claimed at: 2026-09-02T22:55:31Z
    Done by: CODEX
@@ -524,7 +483,6 @@
    Scope: 修复解决文档冲突时窗口配置弱引用触发崩溃
    Files: Sources/Features/Editor/DocumentOpeningMode.swift,Sources/Features/Editor/DocumentSearch.swift
    Note: 已修复解决冲突时窗口配置写入 weak NSWindow 导致的崩溃：DocumentWindowConfigurator 改为记录 ObjectIdentifier 并按窗口/打开模式变化才配置；DocumentSearchWindowReader 同步改为身份缓存，避免窗口关闭期间重复 weak 上报；git diff --check 通过；按项目规则未运行 xcodebuild/测试/SwiftLint
-   Detail: tasks/details/48-fix-conflict-resolution-window-crash.md
    Claimed by: CODEX
    Claimed at: 2026-09-04T15:42:14Z
    Done by: CODEX
@@ -535,7 +493,6 @@
    Scope: 将解决冲突时窗口弱引用崩溃记录到问题记录
    Files: docs/问题记录.md,tasks/TASKS.md,tasks/details
    Note: 已在 docs/问题记录.md 追加解决冲突时窗口 weak NSWindow 崩溃记录；包含触发栈、生命周期根因、ObjectIdentifier 修复方式和后续注意；文档-only，git diff --check 通过；未运行构建/测试/SwiftLint
-   Detail: tasks/details/49-document-conflict-window-crash.md
    Claimed by: CODEX
    Claimed at: 2026-09-04T15:48:42Z
    Done by: CODEX
@@ -546,7 +503,6 @@
    Scope: 每次打开搜索时重新聚焦输入框，覆盖快捷键及菜单入口
    Files: Sources/Views/EditorView.swift,Sources/Views/DocumentSearchBar.swift
    Note: 已实现统一入口重复聚焦，检查调用点与请求传递；未编译、未测试、未运行 SwiftLint，需应用内验证
-   Detail: tasks/details/50-refocus-document-search.md
    Claimed by: CODEX
    Claimed at: 2026-09-05T06:59:37Z
    Done by: CODEX
@@ -568,7 +524,6 @@
    Scope: 修复行内代码内容被后续 Markdown 格式规则再次解析
    Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests/AppTests.swift
    Note: 已隔离并还原行内代码，保留下划线及其他格式标记；补充回归用例；未编译、未运行测试或 SwiftLint
-   Detail: tasks/details/52-protect-inline-code.md
    Claimed by: CODEX
    Claimed at: 2026-09-06T03:12:06Z
    Done by: CODEX
@@ -579,7 +534,6 @@
    Scope: 分析嵌套列表预览丢失层级原因
    Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift
    Note: 已确认解析时去除行首缩进，列表项按平级输出；提出保留缩进并生成嵌套列表方案，尚未修改业务代码，未编译或测试
-   Detail: tasks/details/53-diagnose-nested-list-preview.md
    Claimed by: CODEX
    Claimed at: 2026-09-06T03:40:50Z
    Done by: CODEX
@@ -590,7 +544,6 @@
    Scope: 修复嵌套列表解析和预览层级
    Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift, Tests/AppTests.swift
    Note: 已修复嵌套列表和间距，补充四个回归用例；静态检查完成，未编译或运行测试
-   Detail: tasks/details/54-fix-nested-list-preview.md
    Claimed by: CODEX
    Claimed at: 2026-09-06T03:43:20Z
    Done by: CODEX
@@ -601,7 +554,6 @@
    Scope: 分析星号分隔线被识别为列表的问题
    Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift
    Note: 已确认仅识别 --- 分隔线，星号空格形式被识别为列表，剩余星号被强调规则吞掉；未修改业务代码，未编译或测试
-   Detail: tasks/details/55-diagnose-asterisk-divider.md
    Claimed by: CODEX
    Claimed at: 2026-09-06T03:59:15Z
    Done by: CODEX
@@ -612,7 +564,6 @@
    Scope: 核对当前 Markdown 语法支持范围
    Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift
    Note: 已完成源码静态核对，列出未支持和部分支持语法；未修改业务代码，未编译或测试
-   Detail: tasks/details/56-audit-markdown-support.md
    Claimed by: CODEX
    Claimed at: 2026-09-06T04:06:27Z
    Done by: CODEX
@@ -623,7 +574,6 @@
    Scope: 修复预览代码块每行多余横线
    Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift
    Note: 已取消 pre code 内部边框，保留代码块外框及行内代码样式；完成静态核对，未编译或运行测试
-   Detail: tasks/details/57-fix-code-block-border.md
    Claimed by: CODEX
    Claimed at: 2026-09-06T04:08:39Z
    Done by: CODEX
@@ -634,7 +584,6 @@
    Scope: 补齐 Markdown 分隔线识别
    Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift, Tests/AppTests.swift
    Note: 已补齐分隔线写法，保留连续五条独立分隔线和源码锚点；补充四组回归用例，差异检查通过，未编译或运行测试
-   Detail: tasks/details/58-fix-thematic-breaks.md
    Claimed by: CODEX
    Claimed at: 2026-09-06T04:10:02Z
    Done by: CODEX
@@ -645,7 +594,6 @@
    Scope: 记录 Markdown 解析兼容性问题与规范方言
    Files: docs/问题记录.md
    Note: 已在问题记录中补充 Markdown 规范与方言对照、解析缺口和列表分隔线修复状态；文档差异检查通过，未编译或测试
-   Detail: tasks/details/59-document-markdown-compatibility.md
    Claimed by: CODEX
    Claimed at: 2026-09-06T04:25:04Z
    Done by: CODEX
@@ -656,7 +604,6 @@
    Scope: 建立 Markdown 解析补全清单和维护规则
    Files: docs/Markdown 解析补全清单.md, AGENTS.md, docs/问题记录.md
    Note: 已创建解析补全清单，列出稳定编号待办与完成记录，AGENTS.md 加入每次补全同步勾选规则；文档差异和编号检查通过，未编译或测试
-   Detail: tasks/details/60-markdown-parser-todolist.md
    Claimed by: CODEX
    Claimed at: 2026-09-06T04:26:44Z
    Done by: CODEX
@@ -667,7 +614,6 @@
    Scope: 新增共享行间距设置，并同步应用于 Markdown 源码编辑器与可编辑预览
    Files: Sources/App/App.swift,Sources/Views/SettingsView.swift,Sources/Views/EditorView.swift,Sources/Views/MarkdownPreviewView.swift,Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Sources/Infrastructure/DesignSystem/AppTypographyTheme.swift,Sources/Features/Editor/MarkdownOutline.swift,Tests/EditorLineSpacingTests.swift,docs/plans/2026-09-23-shared-line-spacing-design.md,docs/plans/2026-09-23-shared-line-spacing.md
    Note: 完成共享行间距：设置页 80%–130% 滑杆同步更新源码与预览；Swift Testing 4 项通过，严格编译随测试通过；按用户要求未再执行完整构建
-   Detail: tasks/details/61-shared-line-spacing.md
    Claimed by: CODEX
    Claimed at: 2026-09-23T04:09:06Z
    Done by: CODEX
@@ -694,4 +640,55 @@
    Claimed at: 2026-10-25T02:25:17Z
    Done by: CODEX
    Done at: 2026-10-25T02:27:44Z
+
+66. source-line-numbers
+   Id: 66-source-line-numbers
+   Scope: 为 Markdown 源码编辑器增加默认显示、可持久化隐藏的行号栏
+   Files: Sources/App/App.swift,Sources/Views/SettingsView.swift,Sources/Views/EditorView.swift,Sources/Features/Editor/MarkdownOutline.swift,Tests/EditorLineNumberTests.swift,docs/plans/2026-09-29-source-line-numbers-design.md,docs/plans/2026-09-29-source-line-numbers.md
+   Note: 完成源码行号栏：默认显示，可在设置页持久化隐藏；支持 UTF-16/CRLF/尾随空行，软换行不重复编号，滚动和动态编辑同步。严格 build-for-testing 成功（仅 AppIntents 无依赖提示）；未运行测试；界面验证显示/隐藏、软换行、滚动及 81 行动态更新均通过；git diff --check 通过；临时应用、构建目录和样本文档已清理
+   Claimed by: CODEX
+   Claimed at: 2026-09-29T03:10:28Z
+   Done by: CODEX
+   Done at: 2026-09-29T03:19:57Z
+
+67. preview-edit-transactions
+   Id: 67-preview-edit-transactions
+   Scope: 加固预览编辑范围事务：无可信范围时恢复预览、支持不相交范围原子回写、图片导入直接修改 Markdown，彻底避免隐式全文 Turndown
+   Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Sources/Views/MarkdownPreviewView.swift,Sources/Views/EditorView.swift,Tests/AppTests.swift,docs/问题记录.md,tasks/TASKS.md,tasks/details
+   Note: 完成预览编辑范围事务加固：多范围携带 revision 原子回写，无可信范围阻止或恢复预览，图片插入沿用精确光标的受限范围回写；新增 3 个 Swift Testing，聚焦 9 个测试通过，内嵌 JS 语法与 git diff 检查通过；完整既有 XCTest 类 44 项中 1 项既有 CSS 字符串断言失败，与本改动无关
+   Detail: tasks/details/67-preview-edit-transactions.md
+   Claimed by: CODEX
+   Claimed at: 2026-10-27T11:29:55Z
+   Done by: CODEX
+   Done at: 2026-10-27T11:36:44Z
+
+68. preview-initial-revision
+   Id: 68-preview-initial-revision
+   Scope: 消除预览首次编辑因初始 revision 异步同步导致的块重绘闪烁
+   Files: Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Sources/Views/MarkdownPreviewView.swift,Tests/DocumentEditingSessionTests.swift,tasks/TASKS.md
+   Note: 已注入首屏 revision，并串行化等待确认的预览编辑事务；DocumentEditingSessionTests 10/10 通过，git diff --check 通过
+   Claimed by: CODEX
+   Claimed at: 2026-10-28T06:22:05Z
+   Done by: CODEX
+   Done at: 2026-10-28T06:24:22Z
+
+69. remove-weak-preview-tests
+   Id: 69-remove-weak-preview-tests
+   Scope: 删除仅匹配生成 HTML 字符串、无法验证真实竞态的预览测试
+   Files: Tests/DocumentEditingSessionTests.swift,tasks/TASKS.md
+   Note: 已删除两个无法覆盖真实异步竞态的 HTML 字符串断言；未新增替代测试
+   Claimed by: CODEX
+   Claimed at: 2026-10-28T06:26:55Z
+   Done by: CODEX
+   Done at: 2026-10-28T06:27:16Z
+
+70. streamline-task-details
+   Id: 70-streamline-task-details
+   Scope: 仅为复杂设计、重要决策和进行中工作保留任务 detail，清理普通已完成任务记录并调整任务脚本默认行为
+   Files: AGENTS.md,scripts/task.sh,tasks/TASKS.md,tasks/details
+   Note: 合并远端记录后保留 10 份复杂设计或重要决策 detail；删除 55 份普通/空壳记录；task.sh 默认不再创建 detail，需显式 --detail
+   Claimed by: CODEX
+   Claimed at: 2026-10-28T06:38:02Z
+   Done by: CODEX
+   Done at: 2026-10-28T06:38:46Z
 
