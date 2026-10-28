@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage(EditorFontSize.storageKey) private var editorFontSize = EditorFontSize.defaultValue
     @AppStorage(EditorLineSpacing.storageKey) private var editorLineSpacing = EditorLineSpacing.defaultValue
+    @AppStorage(EditorLineNumbers.storageKey) private var showsLineNumbers = EditorLineNumbers.defaultValue
     @AppStorage("documentOpeningMode") private var documentOpeningMode = DocumentOpeningMode.tabs.rawValue
     @AppStorage(AppTypographyAppearance.customBackgroundEnabledKey) private var customBackgroundEnabled = false
     @AppStorage(AppTypographyAppearance.customBackgroundHexKey) private var customBackgroundHex = AppTypographyAppearance.defaultCustomBackgroundHex
@@ -32,6 +33,8 @@ struct SettingsView: View {
                 }
                 Text("Current size: \(Int(editorFontSize)) pt")
                     .foregroundStyle(.secondary)
+
+                Toggle("显示行号", isOn: $showsLineNumbers)
             }
 
             Section("排版") {

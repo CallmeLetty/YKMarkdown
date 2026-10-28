@@ -75,6 +75,11 @@ enum EditorLineSpacing {
     }
 }
 
+enum EditorLineNumbers {
+    static let storageKey = "editorShowsLineNumbers"
+    static let defaultValue = true
+}
+
 /// 当前获得焦点的文档窗口可响应的菜单命令。
 struct EditorCommandActions {
     let insertImagesFromPanel: () -> Void

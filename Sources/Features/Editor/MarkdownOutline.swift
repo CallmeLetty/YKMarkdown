@@ -409,6 +409,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
     let documentURL: URL?
     let fontSize: Double
     let lineSpacingScale: Double
+    var showsLineNumbers = EditorLineNumbers.defaultValue
     let backgroundColor: NSColor
     let foregroundColor: NSColor
     let scrollAnchorOffsets: [Int]
@@ -460,8 +461,13 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         context.coordinator.lastAppliedAppearance = appearanceSignature
 
         scrollView.documentView = textView
+        let lineNumberRuler = MarkdownLineNumberRulerView(scrollView: scrollView, textView: textView)
+        scrollView.verticalRulerView = lineNumberRuler
+        scrollView.hasVerticalRuler = showsLineNumbers
+        scrollView.rulersVisible = showsLineNumbers
         context.coordinator.textView = textView
         context.coordinator.scrollView = scrollView
+        context.coordinator.lineNumberRuler = lineNumberRuler
         context.coordinator.startObservingScroll()
         return scrollView
     }
@@ -473,6 +479,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         guard let textView = context.coordinator.textView else { return }
 
         (textView as? MarkdownTextView)?.documentURL = documentURL
+        context.coordinator.setLineNumbersVisible(showsLineNumbers)
         let appearance = appearanceSignature
         if context.coordinator.lastAppliedAppearance != appearance {
             applyAppearance(to: textView, in: scrollView)
@@ -529,6 +536,11 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             .backgroundColor: foregroundColor.withAlphaComponent(0.18),
             .foregroundColor: foregroundColor
         ]
+        (scrollView.verticalRulerView as? MarkdownLineNumberRulerView)?.updateAppearance(
+            font: font,
+            backgroundColor: backgroundColor,
+            foregroundColor: foregroundColor
+        )
     }
 
     @MainActor
@@ -543,6 +555,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         var parent: MarkdownSourceEditor
         weak var textView: NSTextView?
         weak var scrollView: NSScrollView?
+        weak var lineNumberRuler: MarkdownLineNumberRulerView?
         var lastPositionToken: UUID?
         var lastSearchNavigationToken: UUID?
         var lastAppliedAppearance: EditorAppearance?
@@ -563,15 +576,38 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         }
 
         func startObservingScroll() {
-            guard let scrollView else { return }
+            guard let scrollView, let textView else { return }
             NotificationCenter.default.addObserver(
                 self,
                 selector: #selector(userDidScroll),
                 name: NSScrollView.didLiveScrollNotification,
                 object: scrollView
             )
+            textView.postsFrameChangedNotifications = true
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(textViewFrameDidChange),
+                name: NSView.frameDidChangeNotification,
+                object: textView
+            )
         }
 
+        @objc private func textViewFrameDidChange() {
+            lineNumberRuler?.needsDisplay = true
+        }
+
+        func setLineNumbersVisible(_ isVisible: Bool) {
+            guard let scrollView else { return }
+            guard scrollView.hasVerticalRuler != isVisible
+                    || scrollView.rulersVisible != isVisible
+            else { return }
+            scrollView.hasVerticalRuler = isVisible
+            scrollView.rulersVisible = isVisible
+            if isVisible {
+                lineNumberRuler?.invalidateLineNumbers()
+            }
+            scrollView.tile()
+        }
         /// 选区变化即使未引起滚动，也应让其他区域跟随。
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let textView else { return }
@@ -601,6 +637,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
 
         func textDidChange(_ notification: Notification) {
             guard !isUpdatingView, let textView, !textView.hasMarkedText() else { return }
+            lineNumberRuler?.invalidateLineNumbers()
             let mutation = DocumentMutation(
                 baseRevision: acceptedSnapshot.revision,
                 origin: .source,
@@ -635,6 +672,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             let selection = textView.selectedRange()
             if textView.string != snapshot.text {
                 textView.string = snapshot.text
+                lineNumberRuler?.invalidateLineNumbers()
                 let textLength = (snapshot.text as NSString).length
                 let selectionLocation = min(selection.location, textLength)
                 let selectionLength = min(selection.length, textLength - selectionLocation)
@@ -720,6 +758,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
 
         /// 系统仅在用户滚动后通知，不把光标自动滚动或布局变化当成输入。
         @objc private func userDidScroll() {
+            lineNumberRuler?.needsDisplay = true
             guard !isUpdatingView,
                   let characterIndex = visibleCharacterIndex(),
                   let sourceOffset = parent.scrollAnchorOffsets.last(where: { $0 <= characterIndex })
@@ -749,6 +788,212 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             )
             return layoutManager.characterIndexForGlyph(at: glyphIndex)
         }
+    }
+}
+
+enum MarkdownLineMap {
+    static func starts(in text: String) -> [Int] {
+        let source = text as NSString
+        var starts = [0]
+        var index = 0
+
+        while index < source.length {
+            switch source.character(at: index) {
+            case 0x000A:
+                starts.append(index + 1)
+            case 0x000D:
+                if index + 1 < source.length, source.character(at: index + 1) == 0x000A {
+                    index += 1
+                }
+                starts.append(index + 1)
+            case 0x2028, 0x2029:
+                starts.append(index + 1)
+            default:
+                break
+            }
+            index += 1
+        }
+
+        return starts
+    }
+}
+
+@MainActor
+final class MarkdownLineNumberRulerView: NSRulerView {
+    private weak var textView: NSTextView?
+    private var lineStarts: [Int]
+    private var labelFont = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+    private var labelColor = NSColor.secondaryLabelColor
+    private var gutterBackgroundColor = NSColor.textBackgroundColor
+    private let horizontalPadding: CGFloat = 8
+    private let minimumThickness: CGFloat = 34
+
+    override var isFlipped: Bool { true }
+
+    init(scrollView: NSScrollView, textView: NSTextView) {
+        self.textView = textView
+        lineStarts = MarkdownLineMap.starts(in: textView.string)
+        super.init(scrollView: scrollView, orientation: .verticalRuler)
+        clientView = textView
+        ruleThickness = minimumThickness
+        updateRuleThickness()
+    }
+
+    required init(coder: NSCoder) {
+        lineStarts = [0]
+        super.init(coder: coder)
+    }
+
+    func updateAppearance(font: NSFont, backgroundColor: NSColor, foregroundColor: NSColor) {
+        labelFont = .monospacedDigitSystemFont(ofSize: max(10, font.pointSize * 0.8), weight: .regular)
+        gutterBackgroundColor = backgroundColor
+        labelColor = foregroundColor.withAlphaComponent(0.48)
+        updateRuleThickness()
+        needsDisplay = true
+    }
+
+    func invalidateLineNumbers() {
+        guard let textView else { return }
+        lineStarts = MarkdownLineMap.starts(in: textView.string)
+        updateRuleThickness()
+        needsDisplay = true
+    }
+
+    override func drawHashMarksAndLabels(in rect: NSRect) {
+        NSGraphicsContext.saveGraphicsState()
+        defer { NSGraphicsContext.restoreGraphicsState() }
+        NSBezierPath(rect: bounds).addClip()
+
+        gutterBackgroundColor.setFill()
+        bounds.fill()
+
+        guard let textView,
+              let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer
+        else { return }
+
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .right
+        let labelAttributes: [NSAttributedString.Key: Any] = [
+            .font: labelFont,
+            .foregroundColor: labelColor,
+            .paragraphStyle: paragraphStyle
+        ]
+        let textLength = (textView.string as NSString).length
+
+        if textLength == 0 {
+            drawLineNumber(
+                1,
+                beside: NSRect(
+                    x: 0,
+                    y: textView.textContainerOrigin.y,
+                    width: 0,
+                    height: layoutManager.defaultLineHeight(for: textView.font ?? labelFont)
+                ),
+                in: textView,
+                attributes: labelAttributes
+            )
+        } else {
+            let visibleRect = textView.visibleRect
+            let textContainerOrigin = textView.textContainerOrigin
+            let visibleContainerRect = visibleRect.offsetBy(
+                dx: -textContainerOrigin.x,
+                dy: -textContainerOrigin.y
+            )
+            layoutManager.ensureLayout(forBoundingRect: visibleContainerRect, in: textContainer)
+            let visibleGlyphRange = layoutManager.glyphRange(
+                forBoundingRect: visibleContainerRect,
+                in: textContainer
+            )
+            let visibleCharacterRange = layoutManager.characterRange(
+                forGlyphRange: visibleGlyphRange,
+                actualGlyphRange: nil
+            )
+
+            for index in visibleLineIndices(for: visibleCharacterRange) {
+                guard let lineRect = lineRect(
+                    forCharacterAt: lineStarts[index],
+                    textLength: textLength,
+                    layoutManager: layoutManager,
+                    textContainer: textContainer
+                ) else { continue }
+                drawLineNumber(index + 1, beside: lineRect, in: textView, attributes: labelAttributes)
+            }
+        }
+
+        labelColor.withAlphaComponent(0.18).setFill()
+        NSRect(x: bounds.maxX - 1, y: bounds.minY, width: 1, height: bounds.height).fill()
+    }
+
+    private func visibleLineIndices(for characterRange: NSRange) -> ClosedRange<Int> {
+        let lowerIndex = max(0, upperBound(of: characterRange.location) - 1)
+        let upperIndex = max(lowerIndex, upperBound(of: NSMaxRange(characterRange)) - 1)
+        return lowerIndex...min(upperIndex, lineStarts.count - 1)
+    }
+
+    private func upperBound(of value: Int) -> Int {
+        var lower = 0
+        var upper = lineStarts.count
+        while lower < upper {
+            let middle = (lower + upper) / 2
+            if lineStarts[middle] <= value {
+                lower = middle + 1
+            } else {
+                upper = middle
+            }
+        }
+        return lower
+    }
+
+    private func lineRect(
+        forCharacterAt location: Int,
+        textLength: Int,
+        layoutManager: NSLayoutManager,
+        textContainer: NSTextContainer
+    ) -> NSRect? {
+        if location == textLength {
+            let extraLineRect = layoutManager.extraLineFragmentRect
+            return extraLineRect.isEmpty ? nil : extraLineRect
+        }
+
+        let glyphIndex = layoutManager.glyphIndexForCharacter(at: location)
+        return layoutManager.lineFragmentRect(
+            forGlyphAt: glyphIndex,
+            effectiveRange: nil,
+            withoutAdditionalLayout: true
+        )
+    }
+
+    private func drawLineNumber(
+        _ number: Int,
+        beside lineRect: NSRect,
+        in textView: NSTextView,
+        attributes: [NSAttributedString.Key: Any]
+    ) {
+        let label = String(number) as NSString
+        let labelSize = label.size(withAttributes: attributes)
+        let textContainerOrigin = textView.textContainerOrigin
+        let centerInTextView = NSPoint(
+            x: textContainerOrigin.x,
+            y: textContainerOrigin.y + lineRect.midY
+        )
+        let centerInRuler = convert(centerInTextView, from: textView)
+        let labelRect = NSRect(
+            x: horizontalPadding / 2,
+            y: centerInRuler.y - labelSize.height / 2,
+            width: ruleThickness - horizontalPadding,
+            height: labelSize.height
+        )
+        label.draw(in: labelRect, withAttributes: attributes)
+    }
+
+    private func updateRuleThickness() {
+        let widestLabel = String(max(lineStarts.count, 1)) as NSString
+        let width = widestLabel.size(withAttributes: [.font: labelFont]).width
+        let newThickness = max(minimumThickness, ceil(width + horizontalPadding * 2))
+        guard abs(ruleThickness - newThickness) > 0.5 else { return }
+        ruleThickness = newThickness
+        scrollView?.tile()
     }
 }
 
