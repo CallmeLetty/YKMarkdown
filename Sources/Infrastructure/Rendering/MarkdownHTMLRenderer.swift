@@ -21,7 +21,8 @@ enum MarkdownHTMLRenderer {
         lineSpacingScale: Double = EditorLineSpacing.defaultValue,
         backgroundColorCSS: String = "#FFFDF8",
         foregroundColorCSS: String = "#202522",
-        colorSchemeCSS: String = "light"
+        colorSchemeCSS: String = "light",
+        sourceRevision: UInt64 = 0
     ) -> String {
         """
         <!DOCTYPE html>
@@ -352,6 +353,8 @@ enum MarkdownHTMLRenderer {
             let emitTimer = null;
             let suppressEmit = false;
             let isComposing = false;
+            let sourceRevision = \(sourceRevision);
+            let previewEditInFlight = false;
             const headingSelector = 'h1, h2, h3, h4, h5, h6';
             const sourceAnchorSelector = '[data-source-offset]';
             let scrollAnchorFrame = null;
@@ -391,7 +394,7 @@ enum MarkdownHTMLRenderer {
             });
 
             let pendingPreviewEdit = {
-              range: null
+              ranges: []
             };
             const commandKey = 'Meta';
             const commandModifier = 'Meta';
@@ -709,21 +712,35 @@ enum MarkdownHTMLRenderer {
               return sourceRangeFromBlocks(block, block);
             }
 
-            function mergeSourceRanges(left, right) {
-              if (!left) return right;
-              if (!right) return left;
-              return {
-                startSourceOffset: Math.min(left.startSourceOffset, right.startSourceOffset),
-                endSourceOffset: Math.max(left.endSourceOffset, right.endSourceOffset)
-              };
+            function addPendingSourceRange(range) {
+              if (!range) return false;
+              const ranges = pendingPreviewEdit.ranges.concat([range]).sort(function (left, right) {
+                return left.startSourceOffset - right.startSourceOffset;
+              });
+              pendingPreviewEdit.ranges = ranges.reduce(function (result, current) {
+                const previous = result[result.length - 1];
+                if (!previous || current.startSourceOffset > previous.endSourceOffset) {
+                  result.push({
+                    startSourceOffset: current.startSourceOffset,
+                    endSourceOffset: current.endSourceOffset
+                  });
+                } else {
+                  previous.endSourceOffset = Math.max(
+                    previous.endSourceOffset,
+                    current.endSourceOffset
+                  );
+                }
+                return result;
+              }, []);
+              return true;
             }
 
-            function sourceRangeFromEvent(event) {
-              if (!event) return null;
+            function sourceRangesFromEvent(event) {
+              if (!event) return [];
               if (event.getTargetRanges) {
                 const ranges = event.getTargetRanges();
                 if (ranges && ranges.length) {
-                  let result = null;
+                  const result = [];
                   for (let index = 0; index < ranges.length; index++) {
                     const range = ranges[index];
                     const startBlock = sourceBlockForRangeBoundary(
@@ -736,22 +753,34 @@ enum MarkdownHTMLRenderer {
                       range.endOffset,
                       true
                     );
-                    result = mergeSourceRanges(result, sourceRangeFromBlocks(startBlock, endBlock));
+                    const sourceRange = sourceRangeFromBlocks(startBlock, endBlock);
+                    if (sourceRange) result.push(sourceRange);
                   }
-                  if (result) return result;
+                  if (result.length) return result;
                 }
               }
               if (event.target) {
-                return sourceRangeFromBlock(sourceBlockFromNode(event.target));
+                const range = sourceRangeFromBlock(sourceBlockFromNode(event.target));
+                return range ? [range] : [];
               }
-              return null;
+              return [];
             }
 
-            function rememberEditingRange(event) {
-              const range = sourceRangeFromEvent(event) || sourceRangeFromBlock(currentBlock());
-              if (range) {
-                pendingPreviewEdit.range = mergeSourceRanges(pendingPreviewEdit.range, range);
+            function rejectPreviewEdit() {
+              clearTimeout(emitTimer);
+              pendingPreviewEdit.ranges = [];
+              post({ type: 'previewEditRejected' });
+            }
+
+            function rememberEditingRanges(event) {
+              let ranges = sourceRangesFromEvent(event);
+              if (!ranges.length) {
+                const currentRange = sourceRangeFromBlock(currentBlock());
+                if (currentRange) ranges = [currentRange];
               }
+              if (!ranges.length && pendingPreviewEdit.ranges.length) return true;
+              ranges.forEach(addPendingSourceRange);
+              return ranges.length > 0;
             }
 
             function isTableSeparator(value, columnCount) {
@@ -791,20 +820,30 @@ enum MarkdownHTMLRenderer {
             }
 
             function recordPreviewEdit() {
-              const range = pendingPreviewEdit.range || sourceRangeFromBlock(currentBlock());
-              if (range) pendingPreviewEdit.range = range;
+              if (pendingPreviewEdit.ranges.length) return true;
+              return addPendingSourceRange(sourceRangeFromBlock(currentBlock()));
             }
 
             function emitMarkdown() {
               if (suppressEmit || isComposing) return;
-              const range = pendingPreviewEdit.range;
-              pendingPreviewEdit.range = null;
-              if (!range) return;
+              if (previewEditInFlight) return;
+              const ranges = pendingPreviewEdit.ranges;
+              pendingPreviewEdit.ranges = [];
+              if (!ranges.length) {
+                rejectPreviewEdit();
+                return;
+              }
+              previewEditInFlight = true;
               post({
-                type: 'markdownRangeChanged',
-                startSourceOffset: range.startSourceOffset,
-                endSourceOffset: range.endSourceOffset,
-                markdown: markdownForRange(range)
+                type: 'markdownRangesChanged',
+                baseRevision: sourceRevision,
+                patches: ranges.map(function (range) {
+                  return {
+                    startSourceOffset: range.startSourceOffset,
+                    endSourceOffset: range.endSourceOffset,
+                    markdown: markdownForRange(range)
+                  };
+                })
               });
             }
 
@@ -882,7 +921,11 @@ enum MarkdownHTMLRenderer {
                 reportSelectionPosition();
               }
             });
-            content.addEventListener('beforeinput', rememberEditingRange);
+            content.addEventListener('beforeinput', function (event) {
+              if (rememberEditingRanges(event)) return;
+              if (event.cancelable) event.preventDefault();
+              rejectPreviewEdit();
+            });
             content.addEventListener('compositionstart', function () {
               isComposing = true;
               post({ type: 'compositionStarted' });
@@ -973,9 +1016,13 @@ enum MarkdownHTMLRenderer {
               post({ type: 'requestDropImport' });
             });
 
-            window.setBodyHTML = function (html) {
+            window.setBodyHTML = function (html, revision) {
               beginFollowingPosition();
               suppressEmit = true;
+              clearTimeout(emitTimer);
+              pendingPreviewEdit.ranges = [];
+              previewEditInFlight = false;
+              if (Number.isFinite(Number(revision))) sourceRevision = Number(revision);
               const htmlValue = html && html.length ? html : '<p data-source-offset="0"><br></p>';
               if (content.innerHTML !== htmlValue) {
                 content.innerHTML = htmlValue;
@@ -985,7 +1032,8 @@ enum MarkdownHTMLRenderer {
               renderMermaidDiagrams();
             };
 
-            window.setSourceOffsets = function (offsets) {
+            window.setSourceOffsets = function (offsets, revision) {
+              if (Number.isFinite(Number(revision))) sourceRevision = Number(revision);
               const children = Array.from(content.children);
               children.forEach(function (element, index) {
                 const sourceOffset = Number(offsets[index]);
@@ -995,6 +1043,8 @@ enum MarkdownHTMLRenderer {
                   element.removeAttribute('data-source-offset');
                 }
               });
+              previewEditInFlight = false;
+              if (pendingPreviewEdit.ranges.length) scheduleEmit(false);
             };
 
             window.scrollToSourceOffset = function (requestedOffset, requestToken) {
@@ -1055,7 +1105,10 @@ enum MarkdownHTMLRenderer {
             window.insertImageAtCaret = function (src, alt) {
               const safeSrc = String(src).replace(/"/g, '&quot;');
               const safeAlt = String(alt || '').replace(/"/g, '&quot;');
-              pendingPreviewEdit.range = pendingPreviewEdit.range || sourceRangeFromBlock(currentBlock());
+              if (!addPendingSourceRange(sourceRangeFromBlock(currentBlock()))) {
+                rejectPreviewEdit();
+                return;
+              }
               document.execCommand(
                 'insertHTML',
                 false,

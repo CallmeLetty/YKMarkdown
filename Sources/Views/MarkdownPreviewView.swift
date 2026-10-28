@@ -152,7 +152,8 @@ struct MarkdownPreviewView: NSViewRepresentable {
                 lineSpacingScale: parent.lineSpacingScale,
                 backgroundColorCSS: parent.backgroundColorCSS,
                 foregroundColorCSS: parent.foregroundColorCSS,
-                colorSchemeCSS: parent.colorSchemeCSS
+                colorSchemeCSS: parent.colorSchemeCSS,
+                sourceRevision: parent.snapshot.revision
             )
             let loadBase = parent.baseURL?.deletingLastPathComponent()
                 ?? Bundle.main.resourceURL
@@ -212,7 +213,10 @@ struct MarkdownPreviewView: NSViewRepresentable {
             }
             lastAppliedRevision = snapshot.revision
             deferredSnapshot = nil
-            guard snapshot.text != lastAppliedMarkdown else { return }
+            guard snapshot.text != lastAppliedMarkdown else {
+                updateSourceOffsets(for: snapshot.text)
+                return
+            }
             lastAppliedMarkdown = snapshot.text
             let body = MarkdownHTMLRenderer.bodyHTML(from: snapshot.text)
             guard isPageReady else {
@@ -238,6 +242,19 @@ struct MarkdownPreviewView: NSViewRepresentable {
             webView.evaluateJavaScript(script, completionHandler: nil)
         }
 
+        private func restorePreview(from snapshot: DocumentSnapshot? = nil) {
+            if let snapshot {
+                lastAppliedRevision = snapshot.revision
+                lastAppliedMarkdown = snapshot.text
+            }
+            let body = MarkdownHTMLRenderer.bodyHTML(from: lastAppliedMarkdown)
+            if isPageReady {
+                setBodyHTML(body)
+            } else {
+                pendingBodyHTML = body
+            }
+        }
+
         func userContentController(
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
@@ -248,40 +265,54 @@ struct MarkdownPreviewView: NSViewRepresentable {
             else { return }
 
             switch type {
-            case "markdownRangeChanged":
-                guard let startSourceOffset = body["startSourceOffset"] as? NSNumber,
-                      let endSourceOffset = body["endSourceOffset"] as? NSNumber,
-                      let markdown = body["markdown"] as? String
-                else { return }
-                let patched = MarkdownPreviewEditPatch.replacingRange(
+            case "markdownRangesChanged":
+                guard let baseRevision = body["baseRevision"] as? NSNumber,
+                      let rawPatches = body["patches"] as? [[String: Any]]
+                else {
+                    restorePreview()
+                    return
+                }
+                let patches = rawPatches.compactMap { patch -> MarkdownPreviewEditPatch.Replacement? in
+                    guard let startSourceOffset = patch["startSourceOffset"] as? NSNumber,
+                          let endSourceOffset = patch["endSourceOffset"] as? NSNumber,
+                          let markdown = patch["markdown"] as? String
+                    else { return nil }
+                    return .init(
+                        startSourceOffset: startSourceOffset.intValue,
+                        endSourceOffset: endSourceOffset.intValue,
+                        markdown: markdown
+                    )
+                }
+                guard patches.count == rawPatches.count,
+                      let patched = MarkdownPreviewEditPatch.replacingRanges(
                     in: lastAppliedMarkdown,
-                    startSourceOffset: startSourceOffset.intValue,
-                    endSourceOffset: endSourceOffset.intValue,
-                    with: markdown
-                )
+                    with: patches
+                ) else {
+                    restorePreview()
+                    return
+                }
                 let normalized = Self.normalizeMarkdown(patched)
-                guard normalized != lastAppliedMarkdown else { return }
+                guard normalized != lastAppliedMarkdown else {
+                    restorePreview()
+                    return
+                }
                 let mutation = DocumentMutation(
-                    baseRevision: lastAppliedRevision,
+                    baseRevision: baseRevision.uint64Value,
                     origin: .preview,
                     change: DocumentTextChange.between(lastAppliedMarkdown, and: normalized)
                 )
                 let result = parent.onMutation(mutation)
                 switch result {
-                case let .applied(snapshot), let .unchanged(snapshot):
+                case let .applied(snapshot):
                     lastAppliedRevision = snapshot.revision
                     lastAppliedMarkdown = snapshot.text
                     updateSourceOffsets(for: snapshot.text)
-                case let .rejected(snapshot, _):
-                    lastAppliedRevision = snapshot.revision
-                    lastAppliedMarkdown = snapshot.text
-                    let body = MarkdownHTMLRenderer.bodyHTML(from: snapshot.text)
-                    if isPageReady {
-                        setBodyHTML(body)
-                    } else {
-                        pendingBodyHTML = body
-                    }
+                case let .unchanged(snapshot), let .rejected(snapshot, _):
+                    restorePreview(from: snapshot)
                 }
+
+            case "previewEditRejected":
+                restorePreview()
 
             case "compositionStarted":
                 isPreviewComposing = true
@@ -323,6 +354,8 @@ struct MarkdownPreviewView: NSViewRepresentable {
             if let pendingBodyHTML {
                 setBodyHTML(pendingBodyHTML)
                 self.pendingBodyHTML = nil
+            } else {
+                updateSourceOffsets(for: lastAppliedMarkdown)
             }
             if let pendingScrollSourceOffset {
                 scroll(toSourceOffset: pendingScrollSourceOffset)
@@ -368,7 +401,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
 
         private func setBodyHTML(_ html: String) {
             guard let webView else { return }
-            let script = "window.setBodyHTML(\(Self.jsString(html)));"
+            let script = "window.setBodyHTML(\(Self.jsString(html)), \(lastAppliedRevision));"
             webView.evaluateJavaScript(script, completionHandler: nil)
         }
 
@@ -377,7 +410,7 @@ struct MarkdownPreviewView: NSViewRepresentable {
             let offsets = MarkdownHTMLRenderer.sourceOffsets(from: markdown)
                 .map(String.init)
                 .joined(separator: ",")
-            let script = "window.setSourceOffsets([\(offsets)]);"
+            let script = "window.setSourceOffsets([\(offsets)], \(lastAppliedRevision));"
             webView.evaluateJavaScript(script, completionHandler: nil)
         }
 
@@ -414,6 +447,17 @@ struct MarkdownPreviewView: NSViewRepresentable {
 }
 
 enum MarkdownPreviewEditPatch {
+    struct Replacement: Equatable {
+        let startSourceOffset: Int
+        let endSourceOffset: Int
+        let markdown: String
+    }
+
+    private struct PreparedReplacement {
+        let range: NSRange
+        let markdown: String
+    }
+
     /// 将预览中单个顶层块的 Markdown 回写到原文，避免未编辑内容被 HTML 到 Markdown 的全量转换改写。
     static func replacingBlock(
         in markdown: String,
@@ -435,55 +479,80 @@ enum MarkdownPreviewEditPatch {
         endSourceOffset: Int,
         with rangeMarkdown: String
     ) -> String {
+        replacingRanges(
+            in: markdown,
+            with: [Replacement(
+                startSourceOffset: startSourceOffset,
+                endSourceOffset: endSourceOffset,
+                markdown: rangeMarkdown
+            )]
+        ) ?? markdown
+    }
+
+    /// 原子应用多个互不重叠的源码块范围；任一范围无效时拒绝整个事务。
+    static func replacingRanges(
+        in markdown: String,
+        with replacements: [Replacement]
+    ) -> String? {
+        guard !replacements.isEmpty else { return nil }
         let source = markdown as NSString
         let length = source.length
-        let lowerSourceOffset = min(startSourceOffset, endSourceOffset)
-        let upperSourceOffset = max(startSourceOffset, endSourceOffset)
-        if length == 0, lowerSourceOffset == 0, upperSourceOffset == 0 {
-            let replacement = rangeMarkdown
+        if length == 0 {
+            guard replacements.count == 1,
+                  let replacement = replacements.first,
+                  replacement.startSourceOffset == 0,
+                  replacement.endSourceOffset == 0
+            else { return nil }
+            let normalized = replacement.markdown
                 .replacingOccurrences(of: "\r\n", with: "\n")
                 .trimmingCharacters(in: .newlines)
-            return replacement.isEmpty ? "" : replacement + "\n"
-        }
-        guard lowerSourceOffset >= 0, lowerSourceOffset < length else {
-            return markdown
+            return normalized.isEmpty ? "" : normalized + "\n"
         }
 
         let offsets = MarkdownHTMLRenderer.sourceOffsets(from: markdown)
             .filter { $0 >= 0 && $0 < length }
             .sorted()
-        guard let startIndex = offsets.firstIndex(of: lowerSourceOffset),
-              let endIndex = offsets.firstIndex(of: upperSourceOffset),
-              startIndex <= endIndex
-        else {
-            return markdown
+        let prepared = replacements.compactMap { replacement -> PreparedReplacement? in
+            let lowerSourceOffset = min(replacement.startSourceOffset, replacement.endSourceOffset)
+            let upperSourceOffset = max(replacement.startSourceOffset, replacement.endSourceOffset)
+            guard lowerSourceOffset >= 0,
+                  lowerSourceOffset < length,
+                  let startIndex = offsets.firstIndex(of: lowerSourceOffset),
+                  let endIndex = offsets.firstIndex(of: upperSourceOffset),
+                  startIndex <= endIndex
+            else { return nil }
+
+            let replacementEndOffset = endIndex + 1 < offsets.count ? offsets[endIndex + 1] : length
+            let replacementRange = NSRange(
+                location: lowerSourceOffset,
+                length: replacementEndOffset - lowerSourceOffset
+            )
+            let originalRange = source.substring(with: replacementRange)
+            let separator = trailingNewlineSuffix(in: originalRange)
+            var replacementCore = replacement.markdown
+                .replacingOccurrences(of: "\r\n", with: "\n")
+                .trimmingCharacters(in: .newlines)
+            if let tableReplacement = preservingTableSeparators(
+                from: originalRange,
+                in: replacementCore
+            ) {
+                replacementCore = tableReplacement
+            }
+            let preparedMarkdown = replacementCore.isEmpty
+                ? ""
+                : replacementCore + (separator.isEmpty ? "\n" : separator)
+            return PreparedReplacement(range: replacementRange, markdown: preparedMarkdown)
+        }
+        guard prepared.count == replacements.count else { return nil }
+
+        let sorted = prepared.sorted { $0.range.location < $1.range.location }
+        for index in 1..<sorted.count where NSMaxRange(sorted[index - 1].range) > sorted[index].range.location {
+            return nil
         }
 
-        let replacementEndOffset = endIndex + 1 < offsets.count ? offsets[endIndex + 1] : length
-        let replacementRange = NSRange(
-            location: lowerSourceOffset,
-            length: replacementEndOffset - lowerSourceOffset
-        )
-        let originalRange = source.substring(with: replacementRange)
-        let separator = trailingNewlineSuffix(in: originalRange)
-        var replacementCore = rangeMarkdown
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .trimmingCharacters(in: .newlines)
-        if let tableReplacement = preservingTableSeparators(
-            from: originalRange,
-            in: replacementCore
-        ) {
-            replacementCore = tableReplacement
+        return sorted.reversed().reduce(markdown) { result, replacement in
+            (result as NSString).replacingCharacters(in: replacement.range, with: replacement.markdown)
         }
-
-        let replacement: String
-        if replacementCore.isEmpty {
-            replacement = ""
-        } else {
-            replacement = replacementCore + (separator.isEmpty ? "\n" : separator)
-        }
-
-        return source.replacingCharacters(in: replacementRange, with: replacement)
     }
 
     /// 保留原块与下一个块之间的空行数量，避免块级替换顺手重排整篇文档间距。

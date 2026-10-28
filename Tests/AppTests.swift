@@ -154,7 +154,7 @@ final class YKMarkdownTests: XCTestCase {
             fontSize: 18
         )
         XCTAssertTrue(html.contains("contenteditable=\"true\""))
-        XCTAssertTrue(html.contains("markdownRangeChanged"))
+        XCTAssertTrue(html.contains("markdownRangesChanged"))
         XCTAssertFalse(html.contains("type: 'markdownChanged'"))
         XCTAssertTrue(html.contains("--font-size: 18.0px"))
         XCTAssertTrue(html.contains("#content {\n              box-sizing: border-box;\n              width: 100%;"))
@@ -205,7 +205,7 @@ final class YKMarkdownTests: XCTestCase {
             turndownScript: "function TurndownService(){}"
         )
 
-        XCTAssertTrue(html.contains("markdownRangeChanged"))
+        XCTAssertTrue(html.contains("markdownRangesChanged"))
         XCTAssertFalse(html.contains("markdownBlockChanged"))
         XCTAssertFalse(html.contains("function currentMarkdown()"))
         XCTAssertFalse(html.contains("requiresFullEmit"))
@@ -214,8 +214,11 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(html.contains("prefix = options.bulletListMarker + ' ';"))
         XCTAssertTrue(html.contains("turndown.addRule('heading'"))
         XCTAssertTrue(html.contains("turndown.addRule('mermaid'"))
-        XCTAssertTrue(html.contains("function sourceRangeFromEvent(event)"))
-        XCTAssertTrue(html.contains("content.addEventListener('beforeinput', rememberEditingRange)"))
+        XCTAssertTrue(html.contains("function sourceRangesFromEvent(event)"))
+        XCTAssertTrue(html.contains("function rememberEditingRanges(event)"))
+        XCTAssertTrue(html.contains("type: 'previewEditRejected'"))
+        XCTAssertTrue(html.contains("baseRevision: sourceRevision"))
+        XCTAssertTrue(html.contains("if (event.cancelable) event.preventDefault()"))
         XCTAssertTrue(html.contains("renderMermaidDiagrams"))
         XCTAssertTrue(html.contains("fontSize: mermaidFontSize()"))
         XCTAssertTrue(html.contains("nodeSpacing: 18"))
