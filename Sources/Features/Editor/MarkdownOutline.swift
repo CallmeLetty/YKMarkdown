@@ -318,21 +318,18 @@ struct MarkdownOutlineSidebar: View {
     let onClose: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading,
+               spacing: 0) {
+            Button(action: onClose) {
                 Label("目录", systemImage: "list.bullet.indent")
                     .font(.headline)
-                Spacer(minLength: 4)
-                Button(action: onClose) {
-                    Image(systemName: "sidebar.left")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help("收起目录")
-                .accessibilityLabel("收起目录")
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("收起目录")
+            .accessibilityLabel("收起目录")
 
             if headings.isEmpty {
                 VStack(spacing: 8) {
@@ -396,6 +393,40 @@ struct MarkdownOutlineSidebar: View {
     private func fontWeight(for level: Int) -> Font.Weight {
         level <= 2 ? .semibold : .regular
     }
+}
+
+#Preview("Markdown Outline Sidebar") {
+    @Previewable @State var selectedHeadingID: String? = nil
+
+    let headings = MarkdownOutlineParser.headings(in: """
+    # 项目指南
+    ## 快速开始
+    ### 安装与配置
+    ### 创建第一篇文档
+    ## 编辑与预览
+    ### 使用目录在文档的不同章节之间快速切换
+    ## 常见问题
+    """)
+
+    MarkdownOutlineSidebar(
+        headings: headings,
+        activeHeadingID: selectedHeadingID ?? headings.first?.id,
+        accentColor: .accentColor,
+        onSelect: { selectedHeadingID = $0.id },
+        onClose: {}
+    )
+    .frame(width: 240, height: 360)
+}
+
+#Preview("Empty Markdown Outline Sidebar") {
+    MarkdownOutlineSidebar(
+        headings: [],
+        activeHeadingID: nil,
+        accentColor: .accentColor,
+        onSelect: { _ in },
+        onClose: {}
+    )
+    .frame(width: 240, height: 360)
 }
 
 /// 其他区域需要跟随的源码位置；token 允许重复定位同一位置。
