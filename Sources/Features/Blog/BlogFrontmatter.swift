@@ -5,6 +5,16 @@ struct BlogFrontmatter: Equatable {
     var date: String
     var tags: [String]
     var excerpt: String
+    /// 发布栏目；空值兼容旧文章，由标签沿用博客的分类规则。
+    var category: String = ""
+
+    /// 与博客 categoryOf 保持一致，用于上传弹窗预选旧文章的实际栏目。
+    var resolvedCategory: String {
+        if !category.isEmpty { return category }
+        if tags.contains("播客") { return "播客" }
+        if tags.contains(where: { ["技术", "Web", "工具"].contains($0) }) { return "技术" }
+        return "随笔"
+    }
 
     static func todayString() -> String {
         let formatter = DateFormatter()
@@ -31,6 +41,7 @@ struct BlogFrontmatter: Equatable {
         var date = todayString()
         var tags: [String] = []
         var excerpt = ""
+        var category = ""
 
         for line in metaBlock.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
             guard let idx = line.firstIndex(of: ":") else { continue }
@@ -44,12 +55,13 @@ struct BlogFrontmatter: Equatable {
             case "date": date = value.isEmpty ? todayString() : value
             case "excerpt": excerpt = value
             case "tags": tags = parseTags(value)
+            case "category": category = value
             default: break
             }
         }
 
         return (
-            BlogFrontmatter(title: title, date: date, tags: tags, excerpt: excerpt),
+            BlogFrontmatter(title: title, date: date, tags: tags, excerpt: excerpt, category: category),
             body
         )
     }
@@ -65,6 +77,9 @@ struct BlogFrontmatter: Equatable {
             "date: \(date)",
             "tags: [\(tagList)]",
         ]
+        if !category.isEmpty {
+            lines.append("category: \(category)")
+        }
         if !excerpt.isEmpty {
             lines.append("excerpt: \(excerpt)")
         }
@@ -96,12 +111,14 @@ struct BlogFrontmatter: Equatable {
 }
 
 enum BlogSlug {
+    /// 标题转为无声调拼音或拉丁字母，并限制为上传接口接受的 ASCII 文件名。
     static func make(from titleOrFilename: String) -> String {
-        let folded = titleOrFilename
-            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        let latin = titleOrFilename.applyingTransform(.toLatin, reverse: false) ?? titleOrFilename
+        let folded = latin
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
             .lowercased()
         let scalars = folded.unicodeScalars.map { scalar -> Character in
-            if CharacterSet.alphanumerics.contains(scalar) {
+            if (97...122).contains(scalar.value) || (48...57).contains(scalar.value) {
                 return Character(scalar)
             }
             return "-"

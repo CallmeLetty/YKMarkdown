@@ -531,18 +531,39 @@ final class YKMarkdownTests: XCTestCase {
             title: "你好",
             date: "2026-07-23",
             tags: ["随笔", "写作"],
-            excerpt: "摘要"
+            excerpt: "摘要",
+            category: "播客"
         )
         let rendered = meta.render(body: "正文\n")
         let parsed = BlogFrontmatter.parse(from: rendered)
         XCTAssertEqual(parsed.meta?.title, "你好")
         XCTAssertEqual(parsed.meta?.tags, ["随笔", "写作"])
+        XCTAssertEqual(parsed.meta?.category, "播客")
+        XCTAssertEqual(parsed.meta?.resolvedCategory, "播客")
         XCTAssertTrue(parsed.body.contains("正文"))
     }
 
     func testSlugNormalization() {
         XCTAssertEqual(BlogSlug.make(from: "Hello World"), "hello-world")
         XCTAssertEqual(BlogSlug.make(from: "a--b"), "a-b")
+        XCTAssertEqual(BlogSlug.make(from: "你好世界"), "ni-hao-shi-jie")
+        XCTAssertEqual(BlogSlug.make(from: "Swift 中文 123"), "swift-zhong-wen-123")
+        XCTAssertEqual(BlogSlug.make(from: "  Café & Notes!  "), "cafe-notes")
+        XCTAssertEqual(BlogSlug.make(from: "🎧 !!!"), "post-\(BlogFrontmatter.todayString())")
+    }
+
+    /// 旧文章没有 category 时，弹窗应展示与博客相同的推断结果。
+    func testLegacyBlogCategoryInference() {
+        let markdown = "---\ntitle: 旧文章\ntags: [Web, 播客]\n---\n正文"
+        var meta = BlogFrontmatter.parse(from: markdown).meta
+        XCTAssertEqual(meta?.category, "")
+        XCTAssertEqual(meta?.resolvedCategory, "播客")
+        meta?.tags = ["Web"]
+        XCTAssertEqual(meta?.resolvedCategory, "技术")
+        meta?.tags = []
+        XCTAssertEqual(meta?.resolvedCategory, "随笔")
+        meta?.category = "读书"
+        XCTAssertEqual(meta?.resolvedCategory, "读书")
     }
 
     func testReferencedLocalImagePathsIgnoresRemoteAndFindsLocal() {

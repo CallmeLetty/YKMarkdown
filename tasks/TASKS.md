@@ -692,3 +692,13 @@
    Done by: CODEX
    Done at: 2026-10-28T06:38:46Z
 
+71. blog-category-auto-slug
+   Id: 71-blog-category-auto-slug
+   Scope: 上传弹窗增加分类选择，按标题自动生成英文或拼音文件名
+   Files: Sources/Views/BlogUploadSheet.swift,Sources/Features/Blog/BlogFrontmatter.swift,Tests/AppTests.swift,docs/Markdown 解析补全清单.md,tasks/TASKS.md
+   Note: 已增加技术/播客/随笔选择，保留已有自定义分类并按博客规则预选旧文章；category 随发布写入，移除 slug 输入并按标题生成小写英文/无声调拼音文件名、实时展示路径；补充分类型和 slug 回归用例及解析清单；git diff --check 通过，未编译、未运行测试、SwiftLint 或实际上传
+   Claimed by: CODEX
+   Claimed at: 2026-11-18T23:46:49Z
+   Done by: CODEX
+   Done at: 2026-11-18T23:48:10Z
+

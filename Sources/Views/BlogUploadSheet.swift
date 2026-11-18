@@ -11,11 +11,12 @@ struct BlogUploadSheet: View {
 
     @State private var title: String = ""
     @State private var date: String = BlogFrontmatter.todayString()
+    /// 分类写入 Front Matter，不改变博客的 content 目录结构。
+    @State private var category: String = "随笔"
     @State private var selectedTags: [String] = []
     @State private var availableTags: [String] = []
     @State private var isLoadingTags = false
     @State private var excerpt: String = ""
-    @State private var slug: String = ""
     @State private var isUploading = false
     @State private var errorMessage: String?
 
@@ -24,7 +25,10 @@ struct BlogUploadSheet: View {
             Text("上传到 Yakamoz Blog")
                 .font(.title2.weight(.semibold))
 
-            Text("目标：\(settings.repositoryFullName)/\(settings.contentDirectory)/\(displaySlug).md")
+            Text("分类：\(category)")
+                .font(.callout)
+
+            Text("目标：\(settings.repositoryFullName)/\(settings.contentDirectory)/\(slug).md")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
@@ -32,20 +36,20 @@ struct BlogUploadSheet: View {
             Form {
                 TextField("标题", text: $title)
                 TextField("日期 (yyyy-MM-dd)", text: $date)
+                Picker("分类", selection: $category) {
+                    ForEach(categoryOptions, id: \.self) {
+                        Text($0).tag($0)
+                    }
+                }
                 BlogTagPicker(
                     selectedTags: $selectedTags,
                     availableTags: availableTags,
                     isLoading: isLoadingTags
                 )
                 TextField("摘要 excerpt", text: $excerpt)
-                TextField("文件名 slug（小写字母、数字、连字符）", text: $slug)
-                    .onChange(of: title) { _, newValue in
-                        if slugIsDerivedFromTitle {
-                            slug = BlogSlug.make(from: newValue)
-                        }
-                    }
             }
             .formStyle(.grouped)
+            .disabled(isUploading)
 
             if let errorMessage {
                 Text(errorMessage)
@@ -79,13 +83,15 @@ struct BlogUploadSheet: View {
         .task { await loadExistingTags() }
     }
 
-    private var displaySlug: String {
-        let value = slug.trimmingCharacters(in: .whitespacesAndNewlines)
-        return value.isEmpty ? "…" : value
+    /// 文件名始终由当前标题生成，预览和上传共用同一规则。
+    private var slug: String {
+        BlogSlug.make(from: title)
     }
 
-    private var slugIsDerivedFromTitle: Bool {
-        slug.isEmpty || slug == BlogSlug.make(from: title)
+    /// 对齐博客现有栏目，并保留文档中已有的自定义分类。
+    private var categoryOptions: [String] {
+        let options = ["技术", "播客", "随笔"]
+        return options.contains(category) ? options : options + [category]
     }
 
     private func prefill() {
@@ -95,14 +101,11 @@ struct BlogUploadSheet: View {
             date = meta.date
             selectedTags = meta.tags
             excerpt = meta.excerpt
+            category = meta.resolvedCategory
         }
 
         if title.isEmpty {
             title = fileURL?.deletingPathExtension().lastPathComponent ?? "未命名"
-        }
-        if slug.isEmpty {
-            let seed = fileURL?.deletingPathExtension().lastPathComponent ?? title
-            slug = BlogSlug.make(from: seed)
         }
         if excerpt.isEmpty {
             excerpt = String(parsed.body.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80))
@@ -145,7 +148,8 @@ struct BlogUploadSheet: View {
             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
             date: date.trimmingCharacters(in: .whitespacesAndNewlines),
             tags: selectedTags,
-            excerpt: excerpt.trimmingCharacters(in: .whitespacesAndNewlines)
+            excerpt: excerpt.trimmingCharacters(in: .whitespacesAndNewlines),
+            category: category
         )
 
         do {
@@ -156,7 +160,7 @@ struct BlogUploadSheet: View {
                 documentDirectory: fileURL?.deletingLastPathComponent(),
                 settings: settings,
                 token: token,
-                commitMessage: "docs: publish \(slug) via YKMarkdown"
+                commitMessage: "docs: 通过 YKMarkdown 发布\(title)"
             )
             dismiss()
             onFinished(result)
