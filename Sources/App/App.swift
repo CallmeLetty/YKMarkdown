@@ -60,7 +60,7 @@ enum EditorLineSpacing {
     static let maximum = 1.3
     static let step = 0.05
     static let sourceBaseLineHeight: CGFloat = 1.55
-    static let previewBaseLineHeight = 1.9
+    static let previewBaseLineHeight = 1.75
 
     static func clamped(_ value: Double) -> Double {
         min(max(value, minimum), maximum)

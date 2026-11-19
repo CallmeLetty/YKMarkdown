@@ -702,3 +702,13 @@
    Done by: CODEX
    Done at: 2026-11-18T23:48:10Z
 
+72. quiet-editor-redesign
+   Id: 72-quiet-editor-redesign
+   Scope: 按确认效果图调整编辑器双栏、工具栏、源码高亮与安全折叠 Frontmatter
+   Files: Sources/Views/EditorView.swift,Sources/Infrastructure/DesignSystem/AppTypographyTheme.swift,Sources/Features/Editor/MarkdownOutline.swift,Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests,docs/Markdown 解析补全清单.md
+   Note: 已按确认效果图完成工具栏、双栏比例与标题、阅读排版、只读属性折叠及临时源码高亮；修复隐藏大纲拖动与未编辑元数据换行保留；12 项脚本回归、预览 JS 语法与差异检查通过；补充原生边界用例和 MD-004 清单，未编译、未运行原生测试、SwiftLint 或应用界面验证
+   Claimed by: CODEX
+   Claimed at: 2026-11-19T00:06:18Z
+   Done by: CODEX
+   Done at: 2026-11-19T00:13:17Z
+

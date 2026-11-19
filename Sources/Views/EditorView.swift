@@ -68,7 +68,7 @@ struct EditorView: View {
                 case .split:
                     ThreePaneSplitView(
                         isLeadingVisible: isOutlineVisible,
-                        initialFractions: (leading: 0.2, middle: 0.4),
+                        initialFractions: (leading: 0.2, middle: 0.36),
                         minimumWidths: (leading: 160, middle: 280, trailing: 280)
                     ) {
                         outlinePane
@@ -105,51 +105,64 @@ struct EditorView: View {
         .frame(minWidth: isOutlineVisible ? 800 : 720, minHeight: 480)
         .background(typographyBackgroundColor)
         .toolbar {
-            ToolbarItemGroup(placement: .automatic) {
+            ToolbarItem(placement: .navigation) {
                 Button {
                     setOutlineVisible(!isOutlineVisible)
                 } label: {
-                    Label("Outline", systemImage: "sidebar.left")
+                    Label("文档大纲", systemImage: "sidebar.left")
                 }
                 .disabled(mergeSession != nil)
-                .help(isOutlineVisible ? "Hide document outline" : "Show document outline")
-
-                Button {
-                    reloadDocumentFromDisk()
-                } label: {
-                    Label("Reload Current Document", systemImage: "arrow.clockwise")
-                }
-                .disabled(fileURL == nil || mergeSession != nil)
-                .help("从磁盘重新载入当前文档")
-
-                Picker("Layout", selection: $layout) {
-                    Label("Editor", systemImage: "square.and.pencil")
+                .help(isOutlineVisible ? "隐藏文档大纲" : "显示文档大纲")
+            }
+            ToolbarItemGroup(placement: .primaryAction) {
+                Picker("显示模式", selection: $layout) {
+                    Label("源码", systemImage: "square.and.pencil")
                         .tag(EditorLayout.editorOnly)
-                    Label("Split", systemImage: "rectangle.split.2x1")
+                    Label("分栏", systemImage: "rectangle.split.2x1")
                         .tag(EditorLayout.split)
-                    Label("Preview", systemImage: "eye")
+                    Label("预览", systemImage: "eye")
                         .tag(EditorLayout.previewOnly)
                 }
                 .pickerStyle(.segmented)
+                .controlSize(.small)
                 .disabled(mergeSession != nil)
-                .help("Switch between editor, split, and preview")
+                .help("切换源码、分栏和预览")
 
-                Button {
-                    insertImagesFromPanel()
-                } label: {
-                    Label("Insert Image", systemImage: "photo")
+                Button(action: insertImagesFromPanel) {
+                    Label("插入图片", systemImage: "photo")
                 }
                 .disabled(mergeSession != nil)
-                .help("Insert image into Markdown (saved under ./assets)")
+                .help("插入图片并保存到 ./assets")
 
-                Button {
-                    beginUpload()
+                Menu {
+                    Button(action: reloadDocumentFromDisk) {
+                        Label("从磁盘重新载入", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(fileURL == nil)
+                    Divider()
+                    Button(action: beginUpload) {
+                        Label("发布到博客…", systemImage: "arrow.up.doc")
+                    }
                 } label: {
-                    Label("Upload to Blog", systemImage: "arrow.up.doc")
+                    Label("更多操作", systemImage: "ellipsis")
                 }
+                .menuIndicator(.hidden)
                 .disabled(mergeSession != nil)
-                .help("Upload current document to Yakamoz-Blog/content")
+                .help("文档操作")
             }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            HStack {
+                Text("Markdown")
+                Spacer()
+                Text("UTF-8")
+            }
+            .font(.system(size: 10))
+            .foregroundStyle(Color(nsColor: typographyAppearance.foregroundColor).opacity(0.55))
+            .padding(.horizontal, 16)
+            .frame(height: 24)
+            .background(Color(nsColor: sourceBackgroundColor))
+            .overlay(alignment: .top) { Divider() }
         }
         .onDrop(of: [.fileURL], isTargeted: nil, perform: handleDrop)
         .alert("请先保存文档", isPresented: $showSaveFirstAlert) {
@@ -288,6 +301,7 @@ struct EditorView: View {
 
     private var editorPane: some View {
         VStack(spacing: 0) {
+            paneHeader("Markdown", background: sourceBackgroundColor)
             if isSearchVisible {
                 DocumentSearchBar(
                     scope: $searchScope,
@@ -309,7 +323,7 @@ struct EditorView: View {
                 fontSize: editorFontSize,
                 lineSpacingScale: editorLineSpacing,
                 showsLineNumbers: showsLineNumbers,
-                backgroundColor: typographyAppearance.backgroundColor,
+                backgroundColor: sourceBackgroundColor,
                 foregroundColor: typographyAppearance.foregroundColor,
                 scrollAnchorOffsets: scrollAnchorOffsets,
                 positionRequest: sourcePositionRequest,
@@ -325,35 +339,54 @@ struct EditorView: View {
                 }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(typographyBackgroundColor)
+            .background(Color(nsColor: sourceBackgroundColor))
             .accessibilityLabel("Markdown editor")
         }
     }
 
     private var previewPane: some View {
-        MarkdownPreviewView(
-            snapshot: editingState.snapshot,
-            baseURL: fileURL,
-            onMutation: applyDocumentMutation,
-            onPasteImages: {
-                importPasteboardImages(intoPreview: true)
-            },
-            onDropImages: { urls in
-                importImageURLs(urls, intoPreview: true)
-            },
-            insertImageRequest: insertImageRequest,
-            positionRequest: previewPositionRequest,
-            themeColorCSS: themeColorCSS,
-            fontSize: editorFontSize,
-            lineSpacingScale: editorLineSpacing,
-            backgroundColorCSS: typographyAppearance.backgroundCSS,
-            foregroundColorCSS: typographyAppearance.foregroundCSS,
-            colorSchemeCSS: typographyAppearance.colorSchemeCSS,
-            onPositionChange: { synchronizePosition(to: $0, from: .preview) }
-        )
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(typographyBackgroundColor)
-        .accessibilityLabel("Editable Markdown preview")
+        VStack(spacing: 0) {
+            paneHeader("预览", background: typographyAppearance.backgroundColor)
+            MarkdownPreviewView(
+                snapshot: editingState.snapshot,
+                baseURL: fileURL,
+                onMutation: applyDocumentMutation,
+                onPasteImages: {
+                    importPasteboardImages(intoPreview: true)
+                },
+                onDropImages: { urls in
+                    importImageURLs(urls, intoPreview: true)
+                },
+                insertImageRequest: insertImageRequest,
+                positionRequest: previewPositionRequest,
+                themeColorCSS: themeColorCSS,
+                fontSize: editorFontSize,
+                lineSpacingScale: editorLineSpacing,
+                backgroundColorCSS: typographyAppearance.backgroundCSS,
+                foregroundColorCSS: typographyAppearance.foregroundCSS,
+                colorSchemeCSS: typographyAppearance.colorSchemeCSS,
+                onPositionChange: { synchronizePosition(to: $0, from: .preview) }
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(typographyBackgroundColor)
+            .accessibilityLabel("Editable Markdown preview")
+        }
+    }
+
+    /// 源码区的轻微底色帮助区分编辑与阅读，尊重已有自定义背景。
+    private var sourceBackgroundColor: NSColor {
+        AppTypographyAppearance.sourceBackground(for: typographyAppearance, isCustom: customBackgroundEnabled)
+    }
+
+    /// 两栏共享相同高度的弱化标题，避免额外工具条争夺正文注意力。
+    private func paneHeader(_ title: String, background: NSColor) -> some View {
+        Text(title)
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(Color(nsColor: typographyAppearance.foregroundColor).opacity(0.55))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .frame(height: 30)
+            .background(Color(nsColor: background))
     }
 
     private var currentText: String {

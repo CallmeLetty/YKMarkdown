@@ -291,15 +291,15 @@ struct MarkdownPreviewView: NSViewRepresentable {
                     restorePreview()
                     return
                 }
-                let normalized = Self.normalizeMarkdown(patched)
-                guard normalized != lastAppliedMarkdown else {
+                // 块替换已经处理局部换行；保留未编辑的属性块及 CRLF 原文。
+                guard patched != lastAppliedMarkdown else {
                     restorePreview()
                     return
                 }
                 let mutation = DocumentMutation(
                     baseRevision: baseRevision.uint64Value,
                     origin: .preview,
-                    change: DocumentTextChange.between(lastAppliedMarkdown, and: normalized)
+                    change: DocumentTextChange.between(lastAppliedMarkdown, and: patched)
                 )
                 let result = parent.onMutation(mutation)
                 switch result {
@@ -414,17 +414,6 @@ struct MarkdownPreviewView: NSViewRepresentable {
             webView.evaluateJavaScript(script, completionHandler: nil)
         }
 
-        private static func normalizeMarkdown(_ markdown: String) -> String {
-            var value = markdown.replacingOccurrences(of: "\r\n", with: "\n")
-            while value.hasSuffix("\n\n") {
-                value.removeLast()
-            }
-            if !value.isEmpty, !value.hasSuffix("\n") {
-                value.append("\n")
-            }
-            return value
-        }
-
         private static func jsString(_ value: String) -> String {
             let escaped = value
                 .replacingOccurrences(of: "\\", with: "\\\\")
@@ -510,13 +499,13 @@ enum MarkdownPreviewEditPatch {
         }
 
         let offsets = MarkdownHTMLRenderer.sourceOffsets(from: markdown)
-            .filter { $0 >= 0 && $0 < length }
+            .filter { $0 >= 0 && $0 <= length }
             .sorted()
         let prepared = replacements.compactMap { replacement -> PreparedReplacement? in
             let lowerSourceOffset = min(replacement.startSourceOffset, replacement.endSourceOffset)
             let upperSourceOffset = max(replacement.startSourceOffset, replacement.endSourceOffset)
             guard lowerSourceOffset >= 0,
-                  lowerSourceOffset < length,
+                  lowerSourceOffset <= length,
                   let startIndex = offsets.firstIndex(of: lowerSourceOffset),
                   let endIndex = offsets.firstIndex(of: upperSourceOffset),
                   startIndex <= endIndex
@@ -538,9 +527,10 @@ enum MarkdownPreviewEditPatch {
             ) {
                 replacementCore = tableReplacement
             }
+            let insertionSeparator = lowerSourceOffset == length && !markdown.hasSuffix("\n") ? "\n" : ""
             let preparedMarkdown = replacementCore.isEmpty
                 ? ""
-                : replacementCore + (separator.isEmpty ? "\n" : separator)
+                : insertionSeparator + replacementCore + (separator.isEmpty ? "\n" : separator)
             return PreparedReplacement(range: replacementRange, markdown: preparedMarkdown)
         }
         guard prepared.count == replacements.count else { return nil }

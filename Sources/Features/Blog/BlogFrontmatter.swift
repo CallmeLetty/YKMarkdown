@@ -24,9 +24,22 @@ struct BlogFrontmatter: Equatable {
         return formatter.string(from: Date())
     }
 
+    /// 返回文首属性块的原始 UTF-16 范围，供展示和回写保留原始换行格式。
+    static func sourceRange(in markdown: String) -> NSRange? {
+        guard let regex = try? NSRegularExpression(pattern: #"\A---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)"#),
+              let match = regex.firstMatch(in: markdown, range: NSRange(markdown.startIndex..., in: markdown)),
+              let fieldsRange = Range(match.range(at: 1), in: markdown)
+        else { return nil }
+        // 至少有一个属性键，避免把普通分隔线之间的正文或连续分隔线折叠。
+        let fields = String(markdown[fieldsRange])
+        guard fields.range(of: #"(?m)^[A-Za-z_][A-Za-z0-9_-]*:[ \t]*"#, options: .regularExpression) != nil else { return nil }
+        return match.range
+    }
+
     static func parse(from markdown: String) -> (meta: BlogFrontmatter?, body: String) {
         let normalized = markdown.replacingOccurrences(of: "\r\n", with: "\n")
-        guard let regex = try? NSRegularExpression(pattern: #"\A---\n([\s\S]*?)\n---\n?"#, options: []),
+        guard sourceRange(in: normalized) != nil,
+              let regex = try? NSRegularExpression(pattern: #"\A---\n([\s\S]*?)\n---(?:\n|$)"#, options: []),
               let match = regex.firstMatch(in: normalized, range: NSRange(normalized.startIndex..., in: normalized)),
               let metaRange = Range(match.range(at: 1), in: normalized),
               let fullRange = Range(match.range, in: normalized)

@@ -19,7 +19,7 @@ enum MarkdownHTMLRenderer {
         accentColorCSS: String = "#0969DA",
         fontSize: Double = 14,
         lineSpacingScale: Double = EditorLineSpacing.defaultValue,
-        backgroundColorCSS: String = "#FFFDF8",
+        backgroundColorCSS: String = "#FFFFFF",
         foregroundColorCSS: String = "#202522",
         colorSchemeCSS: String = "light",
         sourceRevision: UInt64 = 0
@@ -38,18 +38,16 @@ enum MarkdownHTMLRenderer {
               --muted: color-mix(in srgb, var(--text) 60%, var(--bg));
               --border: color-mix(in srgb, var(--text) 16%, var(--bg));
               --code-bg: color-mix(in srgb, var(--text) 6%, var(--bg));
-              --quote-bg: color-mix(in srgb, var(--text) 4%, var(--bg));
-              --quote-border: color-mix(in srgb, var(--link) 70%, var(--bg));
               --link: \(accentColorCSS);
               --focus: color-mix(in srgb, \(accentColorCSS) 20%, transparent);
               --font-size: \(fontSize)px;
               --preview-scale: 1.14;
               --line-height: \(EditorLineSpacing.previewLineHeight(for: lineSpacingScale));
-              --content-inline-padding: 36px;
-              --content-top-padding: 58px;
-              --content-bottom-padding: 110px;
-              --body-font: "Songti SC", STSong, "Times New Roman", serif;
-              --heading-font: "Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif;
+              --content-inline-padding: 40px;
+              --content-top-padding: 28px;
+              --content-bottom-padding: 72px;
+              --body-font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", sans-serif;
+              --heading-font: var(--body-font);
               --code-font: "SFMono-Regular", "SF Mono", Menlo, Monaco, "PingFang SC", monospace;
             }
             html, body {
@@ -65,35 +63,54 @@ enum MarkdownHTMLRenderer {
               line-height: var(--line-height);
               letter-spacing: 0.005em;
             }
-            #content {
+            .document-page {
               box-sizing: border-box;
               width: 100%;
-              min-height: 100vh;
+              max-width: 840px;
+              margin: 0 auto;
               padding: var(--content-top-padding) var(--content-inline-padding) var(--content-bottom-padding);
-              outline: none;
             }
-            #content:focus { box-shadow: inset 0 0 0 2px var(--focus); }
+            #content {
+              min-height: 65vh;
+              outline: none;
+              overflow-wrap: anywhere;
+            }
+            .document-properties {
+              margin-bottom: 24px;
+              color: var(--muted);
+              font-size: 0.8em;
+              border-bottom: 1px solid var(--border);
+              padding-bottom: 12px;
+            }
+            .document-properties summary { cursor: pointer; overflow-wrap: anywhere; }
+            .document-properties time { float: right; max-width: 50%; margin-left: 12px; font-variant-numeric: tabular-nums; }
+            .document-properties pre {
+              margin: 12px 0 0;
+              font: 0.95em/1.65 var(--code-font);
+              white-space: pre-wrap;
+              overflow-wrap: anywhere;
+            }
             h1, h2, h3, h4, h5, h6 {
-              margin: 2em 0 0.72em;
+              margin: 1.65em 0 0.65em;
               color: var(--text);
               font-family: var(--heading-font);
-              font-weight: 650;
-              letter-spacing: -0.035em;
+              font-weight: 600;
+              letter-spacing: -0.015em;
               line-height: 1.28;
               scroll-margin-top: 20px;
             }
             h1 {
               margin-top: 0;
-              font-size: 2.35em;
+              font-size: 1.85em;
               line-height: 1.18;
             }
-            h2 { font-size: 1.5em; }
+            h2 { font-size: 1.35em; }
             h3 { font-size: 1.25em; }
-            p, ul, ol, pre, blockquote, table { margin: 0 0 1.35em; }
+            p, ul, ol, pre, blockquote, table { margin: 0 0 0.95em; }
             a {
-              color: var(--link);
+              color: color-mix(in srgb, var(--link) 75%, var(--text));
               text-decoration-thickness: 1px;
-              text-underline-offset: 4px;
+              text-underline-offset: 3px;
             }
             code {
               border: 1px solid var(--border);
@@ -214,13 +231,12 @@ enum MarkdownHTMLRenderer {
               .mermaid-error-message { color: #ff7b72; }
             }
             blockquote {
-              margin: 1.8em 0;
-              padding: 0.9em 1.25em;
+              margin: 1.25em 0 1.5em;
+              padding: 0 0 0 1em;
               color: var(--muted);
-              border-left: 3px solid var(--quote-border);
-              border-radius: 0 9px 9px 0;
-              background: var(--quote-bg);
+              border-left: 2px solid var(--border);
             }
+            blockquote p { margin: 0; }
             hr {
               border: none;
               border-top: 1px solid var(--border);
@@ -247,14 +263,17 @@ enum MarkdownHTMLRenderer {
             @media (max-width: 620px) {
               :root {
                 --content-inline-padding: 22px;
-                --content-top-padding: 38px;
+                --content-top-padding: 24px;
                 --content-bottom-padding: 72px;
               }
             }
           </style>
         </head>
         <body>
-          <div id="content" contenteditable="true" spellcheck="true">\(bodyHTML)</div>
+          <main class="document-page">
+            <div id="document-properties"></div>
+            <div id="content" contenteditable="true" spellcheck="true">\(bodyHTML)</div>
+          </main>
           <div id="mermaid-lightbox" class="mermaid-lightbox" role="dialog" aria-modal="true" aria-hidden="true" contenteditable="false">
             <div class="mermaid-lightbox-toolbar">
               <button id="mermaid-lightbox-close" class="mermaid-lightbox-close" type="button">关闭</button>
@@ -349,6 +368,19 @@ enum MarkdownHTMLRenderer {
                 return '\\n\\n' + markdownRows.join('\\n') + '\\n\\n';
               }
             });
+
+            // 属性块移出可编辑正文，避免全选、删除及 Turndown 回写修改原始 YAML。
+            function extractDocumentProperties() {
+              const container = document.getElementById('document-properties');
+              const wasOpen = Boolean(container.querySelector('details[open]'));
+              const properties = content.querySelector(':scope > .document-properties');
+              container.replaceChildren();
+              if (properties) {
+                properties.open = wasOpen;
+                container.appendChild(properties);
+              }
+            }
+            extractDocumentProperties();
 
             let emitTimer = null;
             let suppressEmit = false;
@@ -1027,6 +1059,7 @@ enum MarkdownHTMLRenderer {
               if (content.innerHTML !== htmlValue) {
                 content.innerHTML = htmlValue;
               }
+              extractDocumentProperties();
               ensureHeadingIDs();
               suppressEmit = false;
               renderMermaidDiagrams();
@@ -1213,6 +1246,18 @@ enum MarkdownHTMLRenderer {
             listHTML += renderInline(text)
         }
 
+        // 属性展示复用现有博客解析器；原文单独只读展示，不进入正文回写范围。
+        if let range = BlogFrontmatter.sourceRange(in: markdown) {
+            let raw = source.substring(with: range)
+            let hasDate = raw.range(of: #"(?m)^date:[ \t]*[^\s]"#, options: .regularExpression) != nil
+            let date = hasDate ? BlogFrontmatter.parse(from: raw).meta?.date ?? "" : ""
+            html.append("<details class=\"document-properties\"><summary title=\"在源码中编辑文档属性\">文档属性<time>\(escapeHTML(date))</time></summary><pre>\(escapeHTML(raw))</pre></details>")
+            index = lineOffsets.firstIndex(where: { $0 >= NSMaxRange(range) }) ?? lines.count
+            if index >= lines.count {
+                appendBlock("<p data-source-offset=\"\(source.length)\"><br></p>", sourceOffset: source.length)
+            }
+        }
+
         while index < lines.count {
             let line = lines[index]
 
@@ -1373,6 +1418,9 @@ enum MarkdownHTMLRenderer {
         flushParagraph()
         flushList()
 
+        if sourceOffsets.isEmpty, BlogFrontmatter.sourceRange(in: markdown) != nil {
+            appendBlock("<p data-source-offset=\"\(source.length)\"><br></p>", sourceOffset: source.length)
+        }
         return RenderedBody(html: html.joined(separator: "\n"), sourceOffsets: sourceOffsets)
     }
 

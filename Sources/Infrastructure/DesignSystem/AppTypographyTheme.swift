@@ -13,10 +13,16 @@ struct ResolvedTypographyAppearance {
 enum AppTypographyAppearance {
     static let customBackgroundEnabledKey = "customEditorBackgroundEnabled"
     static let customBackgroundHexKey = "customEditorBackgroundHex"
-    static let defaultBackgroundHex = "#FFFDF8"
+    static let defaultBackgroundHex = "#FFFFFF"
     static let defaultCustomBackgroundHex = defaultBackgroundHex
     static let editorLineHeightMultiple = EditorLineSpacing.sourceBaseLineHeight
-    static let editorInset = NSSize(width: 26, height: 22)
+    static let editorInset = NSSize(width: 24, height: 24)
+
+    /// 默认源码区使用浅灰底；自定义背景仍在两个编辑区域保持一致。
+    static func sourceBackground(for appearance: ResolvedTypographyAppearance, isCustom: Bool) -> NSColor {
+        if isCustom { return appearance.backgroundColor }
+        return AppThemeColor.nsColor(hex: "#F8F8F7") ?? appearance.backgroundColor
+    }
 
     static func editorFont(size: CGFloat) -> NSFont {
         NSFont(name: "SFMono-Regular", size: size)

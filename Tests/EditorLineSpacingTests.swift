@@ -30,9 +30,9 @@ struct EditorLineSpacingTests {
     @Test("源码和预览保留各自基础行高")
     func resolvesSurfaceLineHeights() {
         #expect(EditorLineSpacing.sourceLineHeight(for: 1.0) == 1.55)
-        #expect(EditorLineSpacing.previewLineHeight(for: 1.0) == 1.9)
+        #expect(EditorLineSpacing.previewLineHeight(for: 1.0) == 1.75)
         #expect(abs(EditorLineSpacing.sourceLineHeight(for: 1.2) - 1.86) < 0.0001)
-        #expect(abs(EditorLineSpacing.previewLineHeight(for: 1.2) - 2.28) < 0.0001)
+        #expect(abs(EditorLineSpacing.previewLineHeight(for: 1.2) - 2.1) < 0.0001)
     }
 
     @Test("预览文档包含初始行高与实时更新接口")

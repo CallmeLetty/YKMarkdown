@@ -81,6 +81,8 @@ struct ThreePaneSplitView<Leading: View, Middle: View, Trailing: View>: View {
     @State private var trailingStartFraction: CGFloat
     @State private var firstDragStart: CGFloat?
     @State private var secondDragStart: CGFloat?
+    /// 隐藏大纲时单独保存正文分栏比例，拖动仍受最小宽度约束。
+    @State private var contentFraction: CGFloat = 0.45
 
     init(
         isLeadingVisible: Bool,
@@ -111,7 +113,7 @@ struct ThreePaneSplitView<Leading: View, Middle: View, Trailing: View>: View {
             let leadingWidth = isLeadingVisible ? boundaries.leading * availableWidth : 0
             let middleWidth = isLeadingVisible
                 ? (boundaries.trailingStart - boundaries.leading) * availableWidth
-                : availableWidth * 0.5
+                : clampedTrailingBoundary(contentFraction, leading: 0, availableWidth: availableWidth) * availableWidth
             let trailingWidth = availableWidth - leadingWidth - middleWidth
 
             HStack(spacing: 0) {
@@ -141,13 +143,19 @@ struct ThreePaneSplitView<Leading: View, Middle: View, Trailing: View>: View {
                     .clipped()
 
                 SplitDivider {
-                    secondDragStart = secondDragStart ?? trailingStartFraction
-                    let proposed = (secondDragStart ?? trailingStartFraction) + $0 / availableWidth
-                    trailingStartFraction = clampedTrailingBoundary(
+                    let currentFraction = isLeadingVisible ? trailingStartFraction : contentFraction
+                    secondDragStart = secondDragStart ?? currentFraction
+                    let proposed = (secondDragStart ?? currentFraction) + $0 / availableWidth
+                    let resolved = clampedTrailingBoundary(
                         proposed,
-                        leading: boundaries.leading,
+                        leading: isLeadingVisible ? boundaries.leading : 0,
                         availableWidth: availableWidth
                     )
+                    if isLeadingVisible {
+                        trailingStartFraction = resolved
+                    } else {
+                        contentFraction = resolved
+                    }
                 } onEnded: {
                     secondDragStart = nil
                 }
@@ -500,6 +508,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         context.coordinator.scrollView = scrollView
         context.coordinator.lineNumberRuler = lineNumberRuler
         context.coordinator.startObservingScroll()
+        context.coordinator.applySyntaxHighlighting()
         return scrollView
     }
 
@@ -517,6 +526,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             context.coordinator.lastAppliedAppearance = appearance
         }
         context.coordinator.receive(snapshot)
+        context.coordinator.applySyntaxHighlighting()
         context.coordinator.applySearchHighlights(query: searchQuery, selectedRange: selectedSearchRange)
 
         if !textView.hasMarkedText(),
@@ -600,6 +610,9 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         private var lastHighlightRevision: UInt64?
         private var lastHighlightQuery = ""
         private var lastHighlightRange: NSRange?
+        /// 内容或外观改变才更新着色，滚动和选区变化复用现有显示属性。
+        private var lastSyntaxRevision: UInt64?
+        private var lastSyntaxAppearance: EditorAppearance?
 
         init(parent: MarkdownSourceEditor) {
             self.parent = parent
@@ -666,6 +679,16 @@ struct MarkdownSourceEditor: NSViewRepresentable {
             }
         }
 
+        /// 在完成组合输入后刷新显示属性，避免打断中文输入。
+        func applySyntaxHighlighting() {
+            guard let textView, !textView.hasMarkedText(),
+                  lastSyntaxRevision != acceptedSnapshot.revision || lastSyntaxAppearance != parent.appearanceSignature
+            else { return }
+            MarkdownSyntaxHighlighter.apply(to: textView, foregroundColor: parent.foregroundColor)
+            lastSyntaxRevision = acceptedSnapshot.revision
+            lastSyntaxAppearance = parent.appearanceSignature
+        }
+
         func textDidChange(_ notification: Notification) {
             guard !isUpdatingView, let textView, !textView.hasMarkedText() else { return }
             lineNumberRuler?.invalidateLineNumbers()
@@ -683,6 +706,8 @@ struct MarkdownSourceEditor: NSViewRepresentable {
                 // 保留原生编辑表面的内容，等待上层显式解决版本冲突。
                 deferredSnapshot = snapshot
             }
+            lastSyntaxRevision = nil
+            applySyntaxHighlighting()
         }
 
         /// revision 是正文同步的唯一触发条件；位置、外观等 SwiftUI 刷新不得重设字符串。
