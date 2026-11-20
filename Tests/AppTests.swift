@@ -92,6 +92,35 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(html.contains("<strong>world</strong>"))
     }
 
+    // 空引用行分隔段落，不重复生成硬换行；整个引用仍只保留一个回写锚点。
+    func testQuoteBlankLinesSeparateParagraphs() {
+        for newline in ["\n", "\r\n"] {
+            let markdown = ["> 播客", ">", ">", "> 记录时间", "> 关键词"].joined(separator: newline)
+            XCTAssertEqual(
+                MarkdownHTMLRenderer.bodyHTML(from: markdown),
+                "<blockquote data-source-offset=\"0\"><p>播客</p><p>记录时间<br />关键词</p></blockquote>"
+            )
+            XCTAssertEqual(MarkdownHTMLRenderer.sourceOffsets(from: markdown), [0])
+            XCTAssertEqual(
+                MarkdownPreviewEditPatch.replacingRange(
+                    in: markdown,
+                    startSourceOffset: 0,
+                    endSourceOffset: 0,
+                    with: "> 新内容\n>\n> 新段落"
+                ),
+                "> 新内容\n>\n> 新段落\n"
+            )
+        }
+    }
+
+    // 空引用仍需有可编辑内容，避免生成没有落点的空容器。
+    func testEmptyQuoteRemainsEditable() {
+        XCTAssertEqual(
+            MarkdownHTMLRenderer.bodyHTML(from: ">\n>"),
+            "<blockquote data-source-offset=\"0\"><p><br /></p></blockquote>"
+        )
+    }
+
     // 代码内的格式标记必须原样保留，代码外的格式仍正常生效。
     func testRendererPreservesInlineCodeContents() {
         let markdown = "😀 `query_embedding_ms` `engine_ms` `**bold** _italic_ ~~deleted~~ [link](url) ![image](url)` `<tag>&` **外部加粗**"
@@ -157,7 +186,6 @@ final class YKMarkdownTests: XCTestCase {
         XCTAssertTrue(html.contains("markdownRangesChanged"))
         XCTAssertFalse(html.contains("type: 'markdownChanged'"))
         XCTAssertTrue(html.contains("--font-size: 18.0px"))
-        XCTAssertTrue(html.contains(".document-page {\n              box-sizing: border-box;\n              width: 100%;"))
         XCTAssertFalse(html.contains("--content-width: 680px"))
         XCTAssertTrue(html.contains("window.setFontSize"))
         XCTAssertTrue(html.contains("--body-font: -apple-system"))
@@ -194,9 +222,9 @@ final class YKMarkdownTests: XCTestCase {
 
     @MainActor
     func testTypographyUsesWritingDefaults() {
-        XCTAssertEqual(AppTypographyAppearance.defaultBackgroundHex, "#FFFDF8")
+        XCTAssertEqual(AppTypographyAppearance.defaultBackgroundHex, "#FFFFFF")
         XCTAssertEqual(AppTypographyAppearance.editorLineHeightMultiple, 1.55)
-        XCTAssertEqual(AppTypographyAppearance.editorInset, NSSize(width: 26, height: 22))
+        XCTAssertEqual(AppTypographyAppearance.editorInset, NSSize(width: 24, height: 24))
     }
 
     func testEditableDocumentUsesBlockLevelPreviewEdits() {

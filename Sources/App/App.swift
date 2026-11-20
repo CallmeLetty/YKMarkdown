@@ -16,6 +16,8 @@ struct YKMarkdownApp: App {
             EditorView(document: file.$document, fileURL: file.fileURL)
                 .tint(AppThemeColor.resolvedColor(modeRawValue: themeColorMode, customHex: themeColorHex))
         }
+        // 统一标题与工具栏区域，玻璃背景及窗口激活状态交由系统管理。
+        .windowToolbarStyle(.unified)
         .commands {
             EditorDocumentCommands()
 

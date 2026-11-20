@@ -712,3 +712,53 @@
    Done by: CODEX
    Done at: 2026-11-19T00:13:17Z
 
+73. remove-static-editor-labels
+   Id: 73-remove-static-editor-labels
+   Scope: 删除编辑器两栏静态标题与底部纯展示状态栏
+   Files: Sources/Views/EditorView.swift
+   Note: 已删除两栏静态标题、底部 Markdown/UTF-8 展示栏及无用标题方法；git diff --check 通过；未编译、未运行测试或 SwiftLint
+   Claimed by: CODEX
+   Claimed at: 2026-11-19T23:26:18Z
+   Done by: CODEX
+   Done at: 2026-11-19T23:26:27Z
+
+74. editor-liquid-glass-toolbar
+   Id: 74-editor-liquid-glass-toolbar
+   Scope: 按确认示意图为编辑器工具栏与布局切换加入原生 Liquid Glass，保留旧系统回退与静态标签删除
+   Files: Sources/Views/EditorView.swift,Sources/App/App.swift
+   Note: 已加入 macOS 26+ 原生玻璃布局控件、选中态过渡、工具栏功能分组与统一标题栏；旧系统保留原分段控件，尊重减少动态效果设置，保留任务73的静态标签删除；核对本机 SDK API 与可用版本、git diff --check 通过；未编译、未运行测试、SwiftLint 或界面验证
+   Claimed by: CODEX
+   Claimed at: 2026-11-19T23:30:24Z
+   Done by: CODEX
+   Done at: 2026-11-19T23:31:03Z
+
+75. editor-header-material-and-quote-spacing
+   Id: 75-editor-header-material-and-quote-spacing
+   Scope: 根据实际运行截图补齐顶部真实透底材质，修复引用空行被重复放大的排版差异
+   Files: Sources/Views/EditorView.swift,Sources/Features/Editor/DocumentOpeningMode.swift,Sources/Infrastructure/Rendering/MarkdownHTMLRenderer.swift,Tests/AppTests.swift,docs/Markdown 解析补全清单.md
+   Note: 已通过 apply_patch 补齐标题栏全尺寸内容、透明标题栏和真实窗口后方模糊材质，限制根视图与各栏底色的安全区域扩展；引用空行改为段落间距并保留整块锚点及空引用编辑落点；补充原生回归用例与 MD-005，12 项既有脚本回归及差异检查通过；未编译、未运行新增原生测试或界面验证，顶部实际观感仍待运行确认
+   Claimed by: CODEX
+   Claimed at: 2026-11-19T23:44:10Z
+   Done by: CODEX
+   Done at: 2026-11-19T23:45:39Z
+
+76. simplify-editor-native-toolbar
+   Id: 76-simplify-editor-native-toolbar
+   Scope: 恢复系统 Picker 与原生标题栏，移除自定义玻璃控件及跨层背景接管，保留工具栏分组和引用修复
+   Files: Sources/Views/EditorView.swift,Sources/Features/Editor/DocumentOpeningMode.swift,Sources/Features/Editor/MarkdownOutline.swift
+   Note: 已通过 apply_patch 移除自定义玻璃布局控件、背景 modifier 和 NSVisualEffectView，恢复单一系统 Picker；撤销此前的窗口样式及各栏安全区域接管，保留原生工具栏分组、统一标题栏、静态标签删除与引用分段修复；相关自定义符号无残留，DocumentOpeningMode/MarkdownOutline 与任务74前版本无差异，git diff --check 通过；未编译、未运行测试或 SwiftLint
+   Claimed by: CODEX
+   Claimed at: 2026-11-19T23:49:04Z
+   Done by: CODEX
+   Done at: 2026-11-19T23:49:24Z
+
+77. verify-editor-glass-in-running-app
+   Id: 77-verify-editor-glass-in-running-app
+   Scope: 亲自构建启动编辑器，对照实际窗口检查顶部材质与排版，迭代到可观察结果
+   Files: Sources/Views/EditorView.swift,Sources/Features/Editor/MarkdownOutline.swift,Sources/Views/MarkdownPreviewView.swift,Tests/AppTests.swift,docs/Markdown 解析补全清单.md
+   Note: 已亲自构建并启动 CODEX_UI_REVIEW 隔离产物；最终只用 containerBackground(.thinMaterial,for:.window) 与系统工具栏，删除临时渐变，不再模拟反光；实际窗口验证三种布局、大纲显示隐藏、属性展开收起和引用间距，原文与临时副本 cmp 一致；修复测试发现的 CRLF 多插空行问题并更新旧断言；严格构建、47 XCTest+25 Swift Testing、git diff --check 全部通过；未运行 SwiftLint，运行截图已在对话展示
+   Claimed by: CODEX
+   Claimed at: 2026-11-19T23:53:54Z
+   Done by: CODEX
+   Done at: 2026-11-20T00:09:44Z
+

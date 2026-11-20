@@ -527,7 +527,7 @@ enum MarkdownPreviewEditPatch {
             ) {
                 replacementCore = tableReplacement
             }
-            let insertionSeparator = lowerSourceOffset == length && !markdown.hasSuffix("\n") ? "\n" : ""
+            let insertionSeparator = lowerSourceOffset == length && markdown.last?.isNewline != true ? "\n" : ""
             let preparedMarkdown = replacementCore.isEmpty
                 ? ""
                 : insertionSeparator + replacementCore + (separator.isEmpty ? "\n" : separator)

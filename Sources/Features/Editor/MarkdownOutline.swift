@@ -391,7 +391,7 @@ struct MarkdownOutlineSidebar: View {
                 }
             }
         }
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Color(nsColor: .controlBackgroundColor), ignoresSafeAreaEdges: [])
     }
 
     private func fontSize(for level: Int) -> CGFloat {

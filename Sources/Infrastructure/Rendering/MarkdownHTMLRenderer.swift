@@ -237,6 +237,7 @@ enum MarkdownHTMLRenderer {
               border-left: 2px solid var(--border);
             }
             blockquote p { margin: 0; }
+            blockquote p + p { margin-top: 0.55em; }
             hr {
               border: none;
               border-top: 1px solid var(--border);
@@ -1349,11 +1350,27 @@ enum MarkdownHTMLRenderer {
                     }
                     index += 1
                 }
-                let quoteBody = quoteLines
-                    .map { $0.isEmpty ? "<br />" : renderInline($0) }
-                    .joined(separator: "<br />")
+                // 空引用行用于分段，不能既生成 br 又额外插入一次换行。
+                var quoteParagraphs: [[String]] = []
+                var quoteParagraph: [String] = []
+                for quoteLine in quoteLines {
+                    if quoteLine.trimmingCharacters(in: .whitespaces).isEmpty {
+                        if !quoteParagraph.isEmpty {
+                            quoteParagraphs.append(quoteParagraph)
+                            quoteParagraph.removeAll(keepingCapacity: true)
+                        }
+                    } else {
+                        quoteParagraph.append(quoteLine)
+                    }
+                }
+                if !quoteParagraph.isEmpty {
+                    quoteParagraphs.append(quoteParagraph)
+                }
+                let quoteBody = quoteParagraphs.isEmpty ? "<p><br /></p>" : quoteParagraphs.map { paragraph in
+                    "<p>" + paragraph.map { renderInline($0) }.joined(separator: "<br />") + "</p>"
+                }.joined()
                 appendBlock(
-                    "<blockquote\(sourceAttribute(quoteOffset))><p>\(quoteBody)</p></blockquote>",
+                    "<blockquote\(sourceAttribute(quoteOffset))>\(quoteBody)</blockquote>",
                     sourceOffset: quoteOffset
                 )
                 continue

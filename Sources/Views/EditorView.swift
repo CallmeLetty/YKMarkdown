@@ -103,67 +103,11 @@ struct EditorView: View {
             }
         }
         .frame(minWidth: isOutlineVisible ? 800 : 720, minHeight: 480)
-        .background(typographyBackgroundColor)
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button {
-                    setOutlineVisible(!isOutlineVisible)
-                } label: {
-                    Label("文档大纲", systemImage: "sidebar.left")
-                }
-                .disabled(mergeSession != nil)
-                .help(isOutlineVisible ? "隐藏文档大纲" : "显示文档大纲")
-            }
-            ToolbarItemGroup(placement: .primaryAction) {
-                Picker("显示模式", selection: $layout) {
-                    Label("源码", systemImage: "square.and.pencil")
-                        .tag(EditorLayout.editorOnly)
-                    Label("分栏", systemImage: "rectangle.split.2x1")
-                        .tag(EditorLayout.split)
-                    Label("预览", systemImage: "eye")
-                        .tag(EditorLayout.previewOnly)
-                }
-                .pickerStyle(.segmented)
-                .controlSize(.small)
-                .disabled(mergeSession != nil)
-                .help("切换源码、分栏和预览")
-
-                Button(action: insertImagesFromPanel) {
-                    Label("插入图片", systemImage: "photo")
-                }
-                .disabled(mergeSession != nil)
-                .help("插入图片并保存到 ./assets")
-
-                Menu {
-                    Button(action: reloadDocumentFromDisk) {
-                        Label("从磁盘重新载入", systemImage: "arrow.clockwise")
-                    }
-                    .disabled(fileURL == nil)
-                    Divider()
-                    Button(action: beginUpload) {
-                        Label("发布到博客…", systemImage: "arrow.up.doc")
-                    }
-                } label: {
-                    Label("更多操作", systemImage: "ellipsis")
-                }
-                .menuIndicator(.hidden)
-                .disabled(mergeSession != nil)
-                .help("文档操作")
-            }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            HStack {
-                Text("Markdown")
-                Spacer()
-                Text("UTF-8")
-            }
-            .font(.system(size: 10))
-            .foregroundStyle(Color(nsColor: typographyAppearance.foregroundColor).opacity(0.55))
-            .padding(.horizontal, 16)
-            .frame(height: 24)
-            .background(Color(nsColor: sourceBackgroundColor))
-            .overlay(alignment: .top) { Divider() }
-        }
+        // 窗口材质负责标题栏透底，正文底色只覆盖安全区域内的阅读区域。
+        .background(typographyBackgroundColor, ignoresSafeAreaEdges: [])
+        .containerBackground(.thinMaterial, for: .window)
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        .toolbar { editorToolbar }
         .onDrop(of: [.fileURL], isTargeted: nil, perform: handleDrop)
         .alert("请先保存文档", isPresented: $showSaveFirstAlert) {
             Button("好的", role: .cancel) {}
@@ -245,6 +189,63 @@ struct EditorView: View {
         }
     }
 
+    /// 布局与文档操作按功能分组，材质、选中态和交互统一交给系统控件。
+    @ToolbarContentBuilder
+    private var editorToolbar: some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
+            Button {
+                setOutlineVisible(!isOutlineVisible)
+            } label: {
+                Label("文档大纲", systemImage: "sidebar.left")
+            }
+            .disabled(mergeSession != nil)
+            .help(isOutlineVisible ? "隐藏文档大纲" : "显示文档大纲")
+        }
+
+        ToolbarItem(placement: .primaryAction) {
+            Picker("显示模式", selection: $layout) {
+                Label("源码", systemImage: "square.and.pencil")
+                    .tag(EditorLayout.editorOnly)
+                Label("分栏", systemImage: "rectangle.split.2x1")
+                    .tag(EditorLayout.split)
+                Label("预览", systemImage: "eye")
+                    .tag(EditorLayout.previewOnly)
+            }
+            .pickerStyle(.segmented)
+            .controlSize(.small)
+            .disabled(mergeSession != nil)
+            .help("切换源码、分栏和预览")
+        }
+
+        if #available(macOS 26.0, *) {
+            ToolbarSpacer(.fixed, placement: .primaryAction)
+        }
+
+        ToolbarItemGroup(placement: .primaryAction) {
+            Button(action: insertImagesFromPanel) {
+                Label("插入图片", systemImage: "photo")
+            }
+            .disabled(mergeSession != nil)
+            .help("插入图片并保存到 ./assets")
+
+            Menu {
+                Button(action: reloadDocumentFromDisk) {
+                    Label("从磁盘重新载入", systemImage: "arrow.clockwise")
+                }
+                .disabled(fileURL == nil)
+                Divider()
+                Button(action: beginUpload) {
+                    Label("发布到博客…", systemImage: "arrow.up.doc")
+                }
+            } label: {
+                Label("更多操作", systemImage: "ellipsis")
+            }
+            .menuIndicator(.hidden)
+            .disabled(mergeSession != nil)
+            .help("文档操作")
+        }
+    }
+
     private var outlinePane: some View {
         MarkdownOutlineSidebar(
             headings: headings,
@@ -301,7 +302,6 @@ struct EditorView: View {
 
     private var editorPane: some View {
         VStack(spacing: 0) {
-            paneHeader("Markdown", background: sourceBackgroundColor)
             if isSearchVisible {
                 DocumentSearchBar(
                     scope: $searchScope,
@@ -339,54 +339,40 @@ struct EditorView: View {
                 }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(nsColor: sourceBackgroundColor))
+            .background(Color(nsColor: sourceBackgroundColor), ignoresSafeAreaEdges: [])
             .accessibilityLabel("Markdown editor")
         }
     }
 
     private var previewPane: some View {
-        VStack(spacing: 0) {
-            paneHeader("预览", background: typographyAppearance.backgroundColor)
-            MarkdownPreviewView(
-                snapshot: editingState.snapshot,
-                baseURL: fileURL,
-                onMutation: applyDocumentMutation,
-                onPasteImages: {
-                    importPasteboardImages(intoPreview: true)
-                },
-                onDropImages: { urls in
-                    importImageURLs(urls, intoPreview: true)
-                },
-                insertImageRequest: insertImageRequest,
-                positionRequest: previewPositionRequest,
-                themeColorCSS: themeColorCSS,
-                fontSize: editorFontSize,
-                lineSpacingScale: editorLineSpacing,
-                backgroundColorCSS: typographyAppearance.backgroundCSS,
-                foregroundColorCSS: typographyAppearance.foregroundCSS,
-                colorSchemeCSS: typographyAppearance.colorSchemeCSS,
-                onPositionChange: { synchronizePosition(to: $0, from: .preview) }
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(typographyBackgroundColor)
-            .accessibilityLabel("Editable Markdown preview")
-        }
+        MarkdownPreviewView(
+            snapshot: editingState.snapshot,
+            baseURL: fileURL,
+            onMutation: applyDocumentMutation,
+            onPasteImages: {
+                importPasteboardImages(intoPreview: true)
+            },
+            onDropImages: { urls in
+                importImageURLs(urls, intoPreview: true)
+            },
+            insertImageRequest: insertImageRequest,
+            positionRequest: previewPositionRequest,
+            themeColorCSS: themeColorCSS,
+            fontSize: editorFontSize,
+            lineSpacingScale: editorLineSpacing,
+            backgroundColorCSS: typographyAppearance.backgroundCSS,
+            foregroundColorCSS: typographyAppearance.foregroundCSS,
+            colorSchemeCSS: typographyAppearance.colorSchemeCSS,
+            onPositionChange: { synchronizePosition(to: $0, from: .preview) }
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(typographyBackgroundColor, ignoresSafeAreaEdges: [])
+        .accessibilityLabel("Editable Markdown preview")
     }
 
     /// 源码区的轻微底色帮助区分编辑与阅读，尊重已有自定义背景。
     private var sourceBackgroundColor: NSColor {
         AppTypographyAppearance.sourceBackground(for: typographyAppearance, isCustom: customBackgroundEnabled)
-    }
-
-    /// 两栏共享相同高度的弱化标题，避免额外工具条争夺正文注意力。
-    private func paneHeader(_ title: String, background: NSColor) -> some View {
-        Text(title)
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(Color(nsColor: typographyAppearance.foregroundColor).opacity(0.55))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 20)
-            .frame(height: 30)
-            .background(Color(nsColor: background))
     }
 
     private var currentText: String {
